@@ -183,7 +183,7 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
             if message.text == "y":
                 msg = app.send_message(
                     chat_id=message.chat.id,
-                    text="Введите в какое время хотите получать уведомление (ЧЧ:ММ)."
+                    text="Введите в какое время хотите получать уведомление (ЧЧ:ММ).",
                 )
                 app.register_next_step_handler(msg, goals_reminder_set)
             elif message.text == "n":
@@ -245,7 +245,9 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
                 msg = app.send_message(message.chat.id, ".")
                 goals_start(msg)
             else:
-                msg = app.send_message(message.chat.id, "Введено неправильное значение.")
+                msg = app.send_message(
+                    message.chat.id, "Введено неправильное значение."
+                )
                 app.register_next_step_handler(msg, goals_reminder_confirmation_check)
 
     def help(app: TeleBot):
@@ -255,7 +257,7 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
             app.edit_message_text(
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
-                text=f"Контактные данные и описание: ДОПИСАТЬ."
+                text=f"Контактные данные и описание: ДОПИСАТЬ.",
             )
 
     def statistic(app: TeleBot, bot: TelegramBot):
@@ -269,38 +271,36 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
         def statistic_analyse(message: Message, books: list[Book]):
             if books:
                 text = (
-                        f"Ваша статистика.\n"
-                        f"1. Прочитанно книг за год: {bot.get_books_over_year(books)}\n"
-                        f"2. Средняя оценка: {bot.get_books_mid_rating(books)}\n"
-                        f"3. Популярные жанры:\n"
+                    f"Ваша статистика.\n"
+                    f"1. Прочитанно книг за год: {bot.get_books_over_year(books)}\n"
+                    f"2. Средняя оценка: {bot.get_books_mid_rating(books)}\n"
+                    f"3. Популярные жанры:\n"
                 )
 
                 for key_value in bot.get_books_popular_genres(books):
                     text += f"\t{key_value[0]} - {key_value[1]}\n"
 
                 app.edit_message_text(
-                    chat_id=message.chat.id,
-                    message_id=message.message_id,
-                    text=text
+                    chat_id=message.chat.id, message_id=message.message_id, text=text
                 )
             else:
                 app.edit_message_text(
                     chat_id=message.chat.id,
                     message_id=message.message_id,
-                    text="Невозможно собрать статистику. Пока нет добавленных книг."
+                    text="Невозможно собрать статистику. Пока нет добавленных книг.",
                 )
 
         def statistic_report(message):
             reports: (Report, Report) = bot.get_report(message.chat.id)
 
-            progress = reports[0].pages_read/reports[1].pages_read * 100
+            progress = reports[0].pages_read / reports[1].pages_read * 100
 
             app.send_message(
                 chat_id=message.chat.id,
                 text=f"Ваши результаты за неделю.\n"
-                     f"-Прочитано книг: {reports[0].books_read} ({reports[0].pages_read} стр.)\n"
-                     f"-Новые цитаты: {reports[0].quotes_added}\n"
-                     f"На {progress if progress < 100 else progress - 100}%{f' менее' if progress < 100 else ''} продуктивнее прошлой недели.\n"
+                f"-Прочитано книг: {reports[0].books_read} ({reports[0].pages_read} стр.)\n"
+                f"-Новые цитаты: {reports[0].quotes_added}\n"
+                f"На {progress if progress < 100 else progress - 100}%{f' менее' if progress < 100 else ''} продуктивнее прошлой недели.\n",
             )
 
     goals(app, bot)

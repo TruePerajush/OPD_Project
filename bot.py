@@ -1,14 +1,15 @@
 from datetime import time, datetime
 from typing import Union
 
+
 class Report:
     def __init__(
-            self,
-            report_id: int,
-            user_id: int,
-            books_read: int,
-            pages_read: int,
-            quotes_added: int,
+        self,
+        report_id: int,
+        user_id: int,
+        books_read: int,
+        pages_read: int,
+        quotes_added: int,
     ):
         self.report_id = report_id
         self.user_id = user_id
@@ -16,17 +17,18 @@ class Report:
         self.pages_read = pages_read
         self.quotes_added = quotes_added
 
+
 class Book:
     def __init__(
-            self,
-            title: str,
-            description: str,
-            year: str,
-            rating: float,
-            genre: str,
-            status: str,
-            last_update: datetime,
-            cover: str = None, #ссылка на обложку из бакета covers
+        self,
+        title: str,
+        description: str,
+        year: str,
+        rating: float,
+        genre: str,
+        status: str,
+        last_update: datetime,
+        cover: str = None,  # ссылка на обложку из бакета covers
     ):
         self.title = title
         self.description = description
@@ -36,6 +38,7 @@ class Book:
         self.status = status
         self.last_update = last_update
         self.cover = cover
+
 
 class User:
     def __init__(
@@ -106,6 +109,7 @@ class TelegramBot:
         """
         print("книги получены")
         return list()
+
     def get_books_over_year(self, books: list[Book]) -> int:
         """
         Посчитай кол-во книг, у которых статус - прочитано и последний апдейт от текущего года
@@ -113,6 +117,7 @@ class TelegramBot:
         :return:
         """
         return 0
+
     def get_books_mid_rating(self, books: list[Book]) -> float:
         """
         Посчитай среднюю оценку по книгам
@@ -120,12 +125,14 @@ class TelegramBot:
         :return:
         """
         return 0
+
     def get_books_popular_genres(self, books: list[Book]) -> list[tuple[str, float]]:
         """
         Верни отсортированный по процентам список. Пример [('Хоррор', 60), ('Роман', 40)]
         :param books:
         :return:
         """
+
     async def generate_reports(self) -> None:
         """
         Поставь бесконечный цикл, если понедельник, то входит в тело, иначе ждет сутки или как поставишь.
@@ -134,6 +141,7 @@ class TelegramBot:
         То есть должны храниться новые и с прошлой недели.
         :return:
         """
+
     def get_report(self, chat_id: int) -> tuple[Report, Report]:
         """
         Верни новый и старый репорты из бд соответственно.
@@ -142,6 +150,7 @@ class TelegramBot:
         :return:
         """
         return (Report(1, 1, 1, 1, 1), Report(1, 1, 1, 1, 1))
+
 
 if __name__ == "__main__":
     pass
