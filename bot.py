@@ -14,7 +14,7 @@ class User:
 class TelegramBot:
     def __init__(self, sql_cursor):
         self.sql_cursor = sql_cursor
-    async def create_user(self, user: User) -> None:
+    def create_user(self, user: User) -> None:
         print("user создан")
         """
         Создай пользователя в бд, если такого еще нет
