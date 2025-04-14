@@ -26,6 +26,6 @@ if __name__ == "__main__":
         ) as conn:
             with conn.cursor() as sql_cursor:
                 app = TeleBot("ТОКЕН")
-                init_bot(app, conn, sql_cursor)
+                init_bot(app, supabase, sql_cursor)
     except psycopg2.OperationalError as e:
         print(f"Ошибка при подключение к бд: {e}")
