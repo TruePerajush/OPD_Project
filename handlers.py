@@ -2,7 +2,6 @@ from telebot import TeleBot
 from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ChatFullInfo
 from bot import TelegramBot, User, time
 from typing import Callable
-from telebot.types import User as TelegramUser
 import re
 
 def init_bot(app: TeleBot, conn, sql_cursor):
