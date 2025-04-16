@@ -1,5 +1,36 @@
 from datetime import time, datetime
 from typing import Union
+from time import sleep
+
+
+class Quote:
+    def __init__(
+        self,
+        book_id: int,
+        user_id: int,
+        page_number: int,
+        text: str,
+        chat_id: int = None,
+    ):
+        self.book_id = book_id
+        self.user_id = user_id
+        self.page_number = page_number
+        self.text = text
+        self.chat_id = chat_id
+
+
+class Note:
+    def __init__(
+        self,
+        chat_id: int,
+        book_id: int,
+        rating: int,
+        opinion: str,
+    ):
+        self.chat_id = chat_id
+        self.book_id = book_id
+        self.rating = rating
+        self.opinion = opinion
 
 
 class Report:
@@ -21,6 +52,7 @@ class Report:
 class Book:
     def __init__(
         self,
+        book_id: int,
         title: str,
         description: str,
         year: str,
@@ -28,8 +60,10 @@ class Book:
         genre: str,
         status: str,
         last_update: datetime,
+        author: str,
         cover: str = None,  # ссылка на обложку из бакета covers
     ):
+        self.book_id = book_id
         self.title = title
         self.description = description
         self.year = year
@@ -37,6 +71,7 @@ class Book:
         self.genre = genre
         self.status = status
         self.last_update = last_update
+        self.author = author
         self.cover = cover
 
 
@@ -108,7 +143,19 @@ class TelegramBot:
         :return:
         """
         print("книги получены")
-        return list()
+        return [
+            Book(
+                1,
+                "нига",
+                "черный",
+                1984,
+                10,
+                "человек",
+                "раб",
+                datetime(1, 1, 1),
+                "белый",
+            )
+        ]
 
     def get_books_over_year(self, books: list[Book]) -> int:
         """
@@ -133,7 +180,7 @@ class TelegramBot:
         :return:
         """
 
-    async def generate_reports(self) -> None:
+    def generate_reports(self) -> None:
         """
         Поставь бесконечный цикл, если понедельник, то входит в тело, иначе ждет сутки или как поставишь.
         Там нужно соответственно пройтись по бд и создать новые репорты.
@@ -141,6 +188,9 @@ class TelegramBot:
         То есть должны храниться новые и с прошлой недели.
         :return:
         """
+        while True:
+            print(datetime.now())
+            sleep(5)
 
     def get_report(self, chat_id: int) -> tuple[Report, Report]:
         """
@@ -150,6 +200,35 @@ class TelegramBot:
         :return:
         """
         return (Report(1, 1, 1, 1, 1), Report(1, 1, 1, 1, 1))
+
+    def create_note(self, note: Note) -> None:
+        """
+        Создай или обнови note.
+        :param note:
+        :return:
+        """
+
+    def get_quotes(self, book: Book) -> list[Quote]:
+        """
+        Верни список цитат по book_id
+        :param book:
+        :return:
+        """
+        return [Quote(1, 1, 1, "wasap")]
+
+    def create_quote(self, quote: Quote) -> None:
+        """
+        Добавь quote в бд
+        :param quote:
+        :return:
+        """
+
+    def update_book(self, book: Book):
+        """
+        Обнови книгу, она точно есть в таблице
+        :param book:
+        :return:
+        """
 
 
 if __name__ == "__main__":

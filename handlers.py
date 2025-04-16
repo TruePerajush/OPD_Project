@@ -1,11 +1,12 @@
 from telebot import TeleBot
+from concurrent.futures import ThreadPoolExecutor
 from telebot.types import (
     Message,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     CallbackQuery,
 )
-from bot import TelegramBot, User, time, Book, Report
+from bot import TelegramBot, User, time, Book, Report, Note, Quote, Union, datetime
 from typing import Callable
 from supabase import Client
 import re
@@ -303,12 +304,607 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
                 f"На {progress if progress < 100 else progress - 100}%{f' менее' if progress < 100 else ''} продуктивнее прошлой недели.\n",
             )
 
+    def notes(app: TeleBot, bot: TelegramBot):
+        @app.callback_query_handler(func=lambda call: call.data == "start_notes")
+        def handle_start_notes(call: CallbackQuery):
+            app.answer_callback_query(call.id)
+            handle_start_notes_first_message(call.message)
+
+        def handle_start_notes_first_message(message: Message):
+            books = bot.get_books(message.chat.id)
+            if books:
+                text = "Выберите книгу:\n"
+                for number, book in enumerate(books):
+                    text += f"{number + 1}. {book.author} - {book.title}\n"
+                msg = app.edit_message_text(
+                    chat_id=message.chat.id,
+                    message_id=message.message_id,
+                    text=text,
+                    reply_markup=None,
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: notes_check_book(message, books)
+                )
+            else:
+                app.edit_message_text(
+                    chat_id=message.chat.id,
+                    message_id=message.message_id,
+                    text="У вас нет книг. Пока что невозможно создать заметку.",
+                    reply_markup=None,
+                )
+
+        def notes_check_book(message: Message, books: list[Book]):
+            try:
+                number = int(message.text)
+                if number < 1 or number > len(books):
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Книги с таким порядковым номером нет в вашем списке. Введите еще раз.",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: notes_check_book(message, books)
+                    )
+                else:
+                    msg = app.send_message(
+                        chat_id=message.chat.id, text="Напишите отзыв к книге."
+                    )
+                    app.register_next_step_handler(
+                        msg,
+                        lambda message: notes_get_opinion(message, books[number - 1]),
+                    )
+            except ValueError:
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Введите порядковый номер книги. Введите еще раз.",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: notes_check_book(message, books)
+                )
+
+        def notes_get_opinion(message: Message, book: Book):
+            note = Note(message.chat.id, book.book_id, None, message.text)
+
+            msg = app.send_message(
+                chat_id=message.chat.id,
+                text="Отзыв получен. Поставьте рейтинг прочитанной книге по 10-бальной шкале.",
+            )
+
+            app.register_next_step_handler(
+                msg, lambda message: notes_check_rating(message, note)
+            )
+
+        def notes_check_rating(message: Message, note: Note):
+            try:
+                rating = int(message.text)
+                if rating < 1 or rating > 10:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Значение не подходит. Введите еще раз.",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: notes_check_rating(message, note)
+                    )
+                else:
+                    note.rating = rating
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text=f"Подтверждение:\n"
+                        f"Отзыв: {note.opinion}\n"
+                        f"Рейтинг: {note.rating}/10\n\n"
+                        f"Все верно? (y/n)",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: notes_confirmation(message, note)
+                    )
+            except ValueError:
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Значение не подходит. Введите еще раз.",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: notes_check_rating(message, note)
+                )
+
+        def notes_confirmation(message: Message, note: Note):
+            if message.text == "y":
+                bot.create_note(note)
+                app.send_message(
+                    chat_id=message.chat.id, text="Заметка успешно сохранена."
+                )
+            elif message.text == "n":
+                msg = app.send_message(
+                    chat_id=message.chat.id, text="Повторите ввод данных заметки."
+                )
+                handle_start_notes_first_message(msg)
+            else:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите y или n.")
+                app.register_next_step_handler(
+                    msg, lambda message: notes_confirmation(message, note)
+                )
+
+    def quotes(app: TeleBot, bot: TelegramBot):
+        @app.callback_query_handler(func=lambda call: call.data == "start_quotes")
+        def handle_start_quotes(call: CallbackQuery):
+
+            app.answer_callback_query(call.id)
+            handle_start_quotes_first_message(call.message)
+
+        def handle_start_quotes_first_message(message: Message):
+            books = bot.get_books(message.chat.id)
+            if books:
+                text = "Выберите книгу:\n"
+                for number, book in enumerate(books):
+                    text += f"{number + 1}. {book.author} - {book.title}\n"
+                msg = app.edit_message_text(
+                    chat_id=message.chat.id,
+                    message_id=message.message_id,
+                    text=text,
+                    reply_markup=None,
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: quotes_check_book(message, books)
+                )
+            else:
+                app.edit_message_text(
+                    chat_id=message.chat.id,
+                    message_id=message.message_id,
+                    text="У вас нет книг. Пока что эта опция недоступна.",
+                    reply_markup=None,
+                )
+
+        def quotes_check_book(message: Message, books: list[Book]):
+            try:
+                number = int(message.text)
+                if number < 1 or number > len(books):
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Книги с таким порядковым номером нет в вашем списке. Введите еще раз.",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: quotes_check_book(message, books)
+                    )
+                else:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="1. Добавить цитату.\n" "2. Список цитат.",
+                    )
+                    app.register_next_step_handler(
+                        msg,
+                        lambda message: quotes_add_or_list(message, books[number - 1]),
+                    )
+            except ValueError:
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Введите порядковый номер книги. Введите еще раз.",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: quotes_check_book(message, books)
+                )
+
+        def quotes_add_or_list(message: Message, book: Union[Book, Quote]):
+            if message.text == "1":
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Введите цитату.",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: quotes_register_text(message, book)
+                )
+            elif message.text == "2":
+                quotes = bot.get_quotes(book)
+                text = f"Список цитат:\n"
+                for number, quote in enumerate(quotes):
+                    text += f'{number+1}. "{quote.text} стр. {quote.page_number}"'
+                app.send_message(
+                    chat_id=message.chat.id,
+                    text=text,
+                )
+            else:
+                msg = app.send_message(
+                    chat_id=message.chat.id, text="Такой опции нет. Введите 1 или 2."
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: quotes_add_or_list(message, book)
+                )
+
+        def quotes_register_text(message: Message, book: Union[Book, Quote]):
+            if isinstance(book, Book):
+                quote = Quote(
+                    book_id=book.book_id,
+                    user_id=None,
+                    page_number=None,
+                    text=message.text,
+                    chat_id=message.chat.id,
+                )
+            else:
+                quote = book
+                quote.text = message.text
+
+            msg = app.send_message(chat_id=message.chat.id, text="Укажите страницу.")
+
+            app.register_next_step_handler(
+                msg, lambda message: quotes_register_page(message, quote)
+            )
+
+        def quotes_register_page(message: Message, quote: Quote):
+            try:
+                number = int(message.text)
+                if number < 1:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Это не натуральное число. Введите еще раз.",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: quotes_register_page(message, quote)
+                    )
+                else:
+                    quote.page_number = number
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text=f"Подтверждение:\n"
+                        f'"{quote.text}" стр. {quote.page_number}\n\n'
+                        f"Все верно? (y/n)",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: quotes_confirmation(message, quote)
+                    )
+            except ValueError:
+                msg = app.send_message(
+                    chat_id=message.chat.id, text="Это не число. Введите еще раз."
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: quotes_confirmation(message, quote)
+                )
+
+        def quotes_confirmation(message: Message, quote: Quote):
+            if message.text == "y":
+                bot.create_quote(quote)
+                app.send_message(
+                    chat_id=message.chat.id, text="Цитата успешно сохранена."
+                )
+            elif message.text == "n":
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Добавьте цитату заново.\n" "Введите цитату.",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: quotes_register_text(message, quote)
+                )
+            else:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите y или n.")
+                app.register_next_step_handler(
+                    msg, lambda message: quotes_confirmation(message, quote)
+                )
+
+    def books(app: TeleBot, bot: TelegramBot):
+        def books_menu(message: Message):
+            msg = app.edit_message_text(
+                chat_id=message.chat.id,
+                message_id=message.message_id,
+                text=f"1. Добавить книгу.\n"
+                f"2. Поиск книги\n"
+                f"3. Мои книги\n"
+                f"4. Редактировать книгу.\n"
+                f"5. Назад\n\n"
+                f"Выберите номер опции",
+            )
+            app.register_next_step_handler(msg, books_menu_options)
+
+        @app.callback_query_handler(func=lambda call: call.data == "start_books")
+        def handle_start_books(call: CallbackQuery):
+            app.answer_callback_query(call.id)
+            books_menu(call.message)
+
+        def books_menu_options(message: Message):
+            try:
+                option = int(message.text)
+                match option:
+                    case 1:
+                        books_add(message)
+                    case 2:
+                        books_search(message)
+                    case 3:
+                        books_users_books(message)
+                    case 4:
+                        books_pick_to_edit(message)
+                    case 5:
+                        app.edit_message_text(
+                            chat_id=message.chat.id,
+                            message_id=message.message_id,
+                            text="Выберите /menu для продолжения.",
+                        )
+                    case _:
+                        msg = app.send_message(
+                            chat_id=message.chat.id,
+                            text="Такой опции нет. Выберите еще раз.",
+                        )
+                        app.register_next_step_handler(msg, books_menu_options)
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите номер.")
+                app.register_next_step_handler(msg, books_menu_options)
+
+        def books_add(message: Message):
+            # TODO: на последок
+            pass
+
+        def books_search(message: Message):
+            msg = app.send_message(
+                chat_id=message.chat.id,
+                text="Выберите по какому полю, будет производиться поиск:\n"
+                "1. По названию.\n"
+                "2. По автору.\n"
+                "3. По жанру.\n"
+                "4. По году.\n\n"
+                "Введите номер опции.",
+            )
+            app.register_next_step_handler(msg, books_search_get_type)
+
+        def books_search_get_type(message: Message):
+            try:
+                number = int(message.text)
+                if number < 1 or number > 4:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Такой опции нет. Введите еще раз.",
+                    )
+                    app.register_next_step_handler(msg, books_search_get_type)
+                else:
+                    books = bot.get_books(message.chat.id)
+                    match number:
+                        case 1 | 2 | 3:
+                            pass
+                        case 4:
+                            pass
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите число.")
+                app.register_next_step_handler(msg, books_search_get_type)
+
+        def books_users_books(message: Message):
+            books = bot.get_books(message.chat.id)
+
+            if books:
+                sorted_by_status = {
+                    "Читаю сейчас": 0,
+                    "Прочитано": 0,
+                    "Отложено": 0,
+                }
+                for book in books:
+                    sorted_by_status[book.status] += 1
+
+                text = "Ваши книги по статусу:\n"
+                for key, value in sorted_by_status.items():
+                    text += f"{key}: {value}\n"
+
+                app.send_message(chat_id=message.chat.id, text=text)
+
+                text = "Все ваши книги:\n"
+                for number, book in enumerate(books):
+                    text += f"{number+1}. {book.author} - {book.title}\n"
+
+                app.send_message(chat_id=message.chat.id, text=text)
+            else:
+                app.send_message(
+                    chat_id=message.chat.id,
+                    text="У вас нет на данный момент добавленных книг.",
+                )
+
+        def books_pick_to_edit(message: Message):
+            books = bot.get_books(message.chat.id)
+            if books:
+                text = "Все ваши книги (выберите номер, чтобы редактировать, 0 чтобы выйти):\n"
+                for number, book in enumerate(books):
+                    text += f"{number + 1}. {book.author} - {book.title}\n"
+
+                msg = app.send_message(chat_id=message.chat.id, text=text)
+
+                app.register_next_step_handler(
+                    msg, lambda message: books_edit_book(message, books)
+                )
+
+        def books_edit_book(message: Message, books: list[Book]):
+            try:
+                number = int(message.text)
+                if number < 0 or number > len(books):
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Такой книги нет. Введите еще раз.",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_edit_book(message, books)
+                    )
+                elif number == 0:
+                    app.send_message(
+                        chat_id=message.chat.id, text="Редактирование отменено."
+                    )
+                else:
+                    book = books[number - 1]
+                    text = (
+                        f"Данные книги:\n"
+                        f"1. Название: {book.title}\n"
+                        f"2. Автор: {book.author}\n"
+                        f"3. Жанр: {book.genre}\n"
+                        f"4. Год: {book.year}\n"
+                        f"5. Статус: {book.status}\n\n"
+                        f"Какое поле хотите редактировать?"
+                    )
+
+                    msg = app.send_message(chat_id=message.chat.id, text=text)
+
+                    app.register_next_step_handler(
+                        msg, lambda message: books_attribute_edit(message, book)
+                    )
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите номер.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_edit_book(message, books)
+                )
+
+        def books_attribute_edit(message: Message, book: Book):
+            try:
+                number = int(message.text)
+                match number:
+                    case 1 | 2 | 3:
+                        msg = app.send_message(
+                            chat_id=message.chat.id,
+                            text=f"Введите новое значение для поля.",
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_edit_str(message, book, number)
+                        )
+                    case 4:
+                        msg = app.send_message(
+                            chat_id=message.chat.id,
+                            text=f"Введите новый год выхода книги.",
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_edit_num(message, book)
+                        )
+                    case 5:
+                        msg = app.send_message(
+                            chat_id=message.chat.id,
+                            text=f"Введите новый статус книги. Поддерживаются следующие статусы:\n"
+                            f"1. Читаю сейчас.\n"
+                            f"2. Прочитано.\n"
+                            f"3. Отложено.\n\n"
+                            f"Выберите номер.",
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_edit_status(message, book)
+                        )
+                    case _:
+                        msg = app.send_message(
+                            chat_id=message.chat.id,
+                            text="Такой опции нет. Введите еще раз.",
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_attribute_edit(message, book)
+                        )
+
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите номер.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_attribute_edit(message, book)
+                )
+
+        def books_edit_status(message: Message, book: Book):
+            try:
+                number = int(message.text)
+                match number:
+                    case 1:
+                        book.status = "Читаю сейчас"
+                    case 2:
+                        book.status = "Прочитано"
+                    case 3:
+                        book.status = "Отложено"
+                    case _:
+                        msg = app.send_message(
+                            chat_id=message.chat.id,
+                            text="Такого статуса нет. Введите еще раз.",
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_edit_status(message, book)
+                        )
+                        return
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text=f"Поле успешно обновлено.\n"
+                    f"Хотите обновить другие поля? (y/n)",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: books_edit_confirmation(message, book)
+                )
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите номер.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_attribute_edit(message, book)
+                )
+
+        def books_edit_num(message: Message, book: Book):
+            try:
+                number = int(message.text)
+                if number < 0 or number > datetime.now().year:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Введен некорректный год. Введите еще раз.",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_edit_num(message, book)
+                    )
+                else:
+                    book.year = number
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text=f"Поле успешно обновлено.\n"
+                        f"Хотите обновить другие поля? (y/n)",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_edit_confirmation(message, book)
+                    )
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите число.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_edit_num(message, book)
+                )
+
+        def books_edit_str(message: Message, book: Book, choice: int):
+            match choice:
+                case 1:
+                    book.title = message.text
+                case 2:
+                    book.author = message.text
+                case 3:
+                    book.genre = message.text
+            msg = app.send_message(
+                chat_id=message.chat.id,
+                text=f"Поле успешно обновлено.\n" f"Хотите обновить другие поля? (y/n)",
+            )
+            app.register_next_step_handler(
+                msg, lambda message: books_edit_confirmation(message, book)
+            )
+
+        def books_edit_confirmation(message: Message, book: Book):
+            if message.text == "y":
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text=f"Введите вариант заново.\n"
+                    f"Данные книги:\n"
+                    f"1. Название: {book.title}\n"
+                    f"2. Автор: {book.author}\n"
+                    f"3. Жанр: {book.genre}\n"
+                    f"4. Год: {book.year}\n"
+                    f"5. Статус: {book.status}\n\n"
+                    f"Какое поле хотите редактировать?",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: books_attribute_edit(message, book)
+                )
+            elif message.text == "n":
+                bot.update_book(book)
+                app.send_message(
+                    chat_id=message.chat.id,
+                    text=f"Редактирование завершено. Редактированные данные книги:\n"
+                    f"Название: {book.title}\n"
+                    f"Автор: {book.author}\n"
+                    f"Жанр: {book.genre}\n"
+                    f"Год: {book.year}\n"
+                    f"Статус: {book.status}",
+                )
+            else:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите y или n.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_attribute_edit(message, book)
+                )
+
     goals(app, bot)
     statistic(app, bot)
     help(app)
+    notes(app, bot)
+    quotes(app, bot)
 
-    print("Бот работает.")
-    app.polling()
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        executor.submit(bot.generate_reports)
+        print("Бот работает.")
+        executor.submit(app.polling)
 
 
 if __name__ == "__main__":

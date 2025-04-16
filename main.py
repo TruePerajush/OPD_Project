@@ -25,7 +25,7 @@ if __name__ == "__main__":
             port=os.getenv("PORT"),
         ) as conn:
             with conn.cursor() as sql_cursor:
-                app = TeleBot("ТОКЕН")
+                app = TeleBot("7114768264:AAFjXmcFevPfLZfZdpkIFh-uxSycYo8B6kw")
                 init_bot(app, supabase, sql_cursor)
     except psycopg2.OperationalError as e:
         print(f"Ошибка при подключение к бд: {e}")
