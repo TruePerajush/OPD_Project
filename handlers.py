@@ -5,15 +5,16 @@ from telebot.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     CallbackQuery,
+    InputMediaPhoto,
 )
 from bot import TelegramBot, User, time, Book, Report, Note, Quote, Union, datetime
-from typing import Callable
+from typing import Callable, final
 from supabase import Client
 import re
 
 
-def init_bot(app: TeleBot, supabase: Client, sql_cursor):
-    bot = TelegramBot(sql_cursor, supabase)
+def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
+    bot = TelegramBot(sql_cursor)
 
     user_messages = {}
 
@@ -608,9 +609,8 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
                     case 4:
                         books_pick_to_edit(message)
                     case 5:
-                        app.edit_message_text(
+                        app.send_message(
                             chat_id=message.chat.id,
-                            message_id=message.message_id,
                             text="Выберите /menu для продолжения.",
                         )
                     case _:
@@ -624,8 +624,246 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
                 app.register_next_step_handler(msg, books_menu_options)
 
         def books_add(message: Message):
-            # TODO: на последок
-            pass
+            msg = app.send_message(
+                chat_id=message.chat.id,
+                text="Введите название книги.(Поддерживается ввод через гс)",
+            )
+            app.register_next_step_handler(msg, books_add_title)
+
+        def books_add_title(message: Message):
+            book = Book()
+            try:
+                file_info = app.get_file(message.voice.file_id)
+                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+                book.title = bot.voice_to_speech(file_url)
+            except AttributeError:
+                book.title = message.text
+            msg = app.send_message(
+                chat_id=message.chat.id, text="Введите автора. (Формат: Фамилия Имя)"
+            )
+            app.register_next_step_handler(
+                msg, lambda message: books_add_author(message, book)
+            )
+
+        def books_add_author(message: Message, book: Book):
+            try:
+                file_info = app.get_file(message.voice.file_id)
+                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+                book.author = bot.voice_to_speech(file_url)
+            except AttributeError:
+                book.author = message.text
+            book = bot.get_book_from_side_site(book)
+            msg = app.send_message(
+                chat_id=message.chat.id,
+                text=f"Название: {book.title}\n"
+                f"Автор: {book.author}\n"
+                f"Жанр: {book.genre}\n"
+                f"Год: {book.year}\n\n"
+                f"Это книга, которую вы хотите добавить? (y/n)",
+            )
+            app.register_next_step_handler(
+                msg, lambda message: books_first_confirmation(message, book)
+            )
+
+        def books_first_confirmation(message: Message, book: Book):
+            if message.text == "y":
+                msg = app.send_message(
+                    chat_id=message.chat.id, text="Скиньте фото или ссылку обложки."
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: books_cover(message, book)
+                )
+            elif message.text == "n":
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Заполните тогда оставшиеся поля сами.\n"
+                    "Выберите жанр:\n"
+                    "1. Классика\n"
+                    "2. Фантастика\n"
+                    "3. Детектив\n"
+                    "4. Роман\n"
+                    "5. Наука\n"
+                    "6. Другое (при выборе этой опции надо будет ввести жанр самому)\n",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: books_genre_choice(message, book)
+                )
+            else:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите y или n")
+                app.register_next_step_handler(
+                    msg, lambda message: books_first_confirmation(message, book)
+                )
+
+        def books_genre_choice(message: Message, book: Book):
+            try:
+                number = int(message.text)
+                match number:
+                    case 1:
+                        book.genre = "Классика"
+                    case 2:
+                        book.genre = "Фантастика"
+                    case 3:
+                        book.genre = "Детектив"
+                    case 4:
+                        book.genre = "Роман"
+                    case 5:
+                        book.genre = "Наука"
+                    case 6:
+                        msg = app.send_message(
+                            chat_id=message.chat.id, text="Введите жанр."
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_genre_user_input(message, book)
+                        )
+                    case _:
+                        msg = app.send_message(
+                            chat_id=message.chat.id, text="Введите число от 1 до 6."
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_genre_choice(message, book)
+                        )
+                        return
+                msg = app.send_message(
+                    chat_id=message.chat.id, text="Введите год издания."
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: books_year(message, book)
+                )
+
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите число")
+                app.register_next_step_handler(
+                    msg, lambda message: books_genre_choice(message, book)
+                )
+
+        def books_genre_user_input(message: Message, book: Book):
+            book.genre = message.text
+            msg = app.send_message(chat_id=message.chat.id, text="Введите год издания.")
+            app.register_next_step_handler(
+                msg, lambda message: books_year(message, book)
+            )
+
+        def books_year(message: Message, book: Book):
+            try:
+                year = int(message.text)
+                if year < 0 or year > datetime.now().year:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text=f"Введите год нашей эры не превышающий {datetime.now().year}",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_year(message, book)
+                    )
+                else:
+                    msg = app.send_message(
+                        chat_id=message.chat.id, text="Скиньте фото или ссылку обложки."
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_cover(message, book)
+                    )
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите число.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_year(message, book)
+                )
+
+        def books_cover(message: Message, book: Book):
+            try:
+                photo = message.photo[-1]
+                file_id = photo.file_id
+                file_info = app.get_file(file_id)
+                book.cover = file_info
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Выберите статус книги: \n"
+                    "1. Читаю сейчас\n"
+                    "2. Прочитано\n"
+                    "3. Отложено\n",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: books_status(message, book)
+                )
+            except:
+                if (
+                    re.match(
+                        r"^(https?://.*\.(jpg|jpeg))$", message.text, re.IGNORECASE
+                    )
+                    is not None
+                ):
+                    book.cover = message.text
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Выберите статус книги: \n"
+                        "1. Читаю сейчас\n"
+                        "2. Прочитано\n"
+                        "3. Отложено\n",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_status(message, book)
+                    )
+                else:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Вы не скинули фото. Попробуйте еще раз.",
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_cover(message, book)
+                    )
+
+        def books_status(message: Message, book: Book):
+            try:
+                number = int(message.text)
+                match number:
+                    case 1:
+                        book.status = "Читаю сейчас"
+                    case 2:
+                        book.status = "Прочитано"
+                    case 3:
+                        book.status = "Отложено"
+                    case _:
+                        msg = app.send_message(
+                            chat_id=message.chat.id,
+                            text="Такой опции нет. Введите от 1 до 3",
+                        )
+                        app.register_next_step_handler(
+                            msg, lambda message: books_status(message, book)
+                        )
+                        return
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text=f"{book.cover}\n"
+                    f"Подтверждение: \n"
+                    f"Название: {book.title}\n"
+                    f"Автор: {book.author}\n"
+                    f"Жанр: {book.genre}\n"
+                    f"Год: {book.year}\n"
+                    f"Статус: {book.status}\n\n"
+                    f"Все верно? (y/n)",
+                )
+                app.register_next_step_handler(
+                    msg, lambda message: books_final_confirmation(message, book)
+                )
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите число.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_status(message, book)
+                )
+
+        def books_final_confirmation(message: Message, book: Book):
+            if message.text == "y":
+                bot.create_book(book)
+                app.send_message(chat_id=message.chat.id, text="Книга создана.")
+            elif message.text == "n":
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text="Введиите все данные заново.\n" "Введите название книги.",
+                )
+                app.register_next_step_handler(msg, books_add_title)
+            else:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите y или n.")
+                app.register_next_step_handler(
+                    msg, lambda message: books_final_confirmation(message, book)
+                )
 
         def books_search(message: Message):
             msg = app.send_message(
@@ -648,21 +886,114 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
                         text="Такой опции нет. Введите еще раз.",
                     )
                     app.register_next_step_handler(msg, books_search_get_type)
+                elif number == 4:
+                    msg = app.send_message(
+                        chat_id=message.chat.id, text="Введите год для поиска."
+                    )
+                    app.register_next_step_handler(msg, books_search_return_by_year)
                 else:
-                    books = bot.get_books(message.chat.id)
                     match number:
-                        case 1 | 2 | 3:
-                            pass
-                        case 4:
-                            pass
+                        case 1:
+                            text = "автора."
+                        case 2:
+                            text = "название."
+                        case 3:
+                            text = "жанр."
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Введите " + text,
+                    )
+                    app.register_next_step_handler(
+                        msg, lambda message: books_search_return_by_str(message, number)
+                    )
             except ValueError:
                 msg = app.send_message(chat_id=message.chat.id, text="Введите число.")
                 app.register_next_step_handler(msg, books_search_get_type)
+
+        def books_search_return_by_str(message: Message, type: int):
+            books = bot.get_books(message.chat.id)
+            to_send_back: list[Book] = []
+            for book in books:
+                if type == 1:
+                    to_send_back.append(book) if book.author == message.text else None
+                elif type == 2:
+                    to_send_back.append(book) if book.title == message.text else None
+                else:
+                    to_send_back.append(book) if book.title == message.text else None
+
+            if to_send_back:
+                app.send_message(chat_id=message.chat.id, text="Найденные книги:")
+                for i in range(len(to_send_back) // 3 + 1):
+                    text = ""
+                    media = []
+                    for j in range(0 + 3 * (i - 1), 3 + 3 * (i - 1)):
+                        if j >= len(to_send_back):
+                            break
+                        media.append(InputMediaPhoto(media=to_send_back[j].cover))
+                        note = bot.get_note(message.chat.id, to_send_back[j].book_id)
+                        text += (
+                            f"Рейтинг: {note.rating if note else "нет"}\n"
+                            f"Заметка: {note.opinion if note else "нет"}\n\n"
+                        )
+                    media[0 + 3 * (i - 1)].caption = text
+                    app.send_media_group(chat_id=message.chat.id, media=media)
+            else:
+                app.send_message(chat_id=message.chat.id, text="Книги не найдены.")
+
+        def books_search_return_by_year(message: Message):
+            try:
+                year = int(message.text)
+                if year < 0 or year > datetime.now().year:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Введите год нашей эры, не превышающий текущий.",
+                    )
+                    app.register_next_step_handler(msg, books_search_return_by_year)
+                else:
+                    books = bot.get_books(message.chat.id)
+                    to_send_back: list[Book] = []
+                    for book in books:
+                        to_send_back.append(book) if book.year == year else None
+
+                    if to_send_back:
+                        app.send_message(
+                            chat_id=message.chat.id,
+                            text="Книги, найденные по данному году:",
+                        )
+                        for i in range(len(to_send_back) // 3 + 1):
+                            text = ""
+                            media = []
+                            for j in range(0 + 3 * (i), 3 + 3 * (i)):
+                                if j >= len(to_send_back):
+                                    break
+                                media.append(
+                                    InputMediaPhoto(media=to_send_back[j].cover)
+                                )
+                                note = bot.get_note(
+                                    message.chat.id, to_send_back[j].book_id
+                                )
+                                text += (
+                                    f"{j + 1}. {to_send_back[j].title} - {to_send_back[j].author}\n"
+                                    f"Рейтинг: {note.rating if note else "нет"}\n"
+                                    f"Заметка: {note.opinion if note else "нет"}\n\n"
+                                )
+                            media[0 + 3 * (i)].caption = text
+                            app.send_media_group(chat_id=message.chat.id, media=media)
+                    else:
+                        app.send_message(
+                            chat_id=message.chat.id,
+                            text="Книги с таким годом не найдены.",
+                        )
+
+            except ValueError:
+                msg = app.send_message(chat_id=message.chat.id, text="Введите число.")
+                app.register_next_step_handler(msg, books_search_return_by_year)
 
         def books_users_books(message: Message):
             books = bot.get_books(message.chat.id)
 
             if books:
+                print("Тута")
                 sorted_by_status = {
                     "Читаю сейчас": 0,
                     "Прочитано": 0,
@@ -900,6 +1231,7 @@ def init_bot(app: TeleBot, supabase: Client, sql_cursor):
     help(app)
     notes(app, bot)
     quotes(app, bot)
+    books(app, bot)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         executor.submit(bot.generate_reports)

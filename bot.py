@@ -52,16 +52,16 @@ class Report:
 class Book:
     def __init__(
         self,
-        book_id: int,
-        title: str,
-        description: str,
-        year: str,
-        rating: float,
-        genre: str,
-        status: str,
-        last_update: datetime,
-        author: str,
-        cover: str = None,  # ссылка на обложку из бакета covers
+        title: str = None,
+        book_id: int = 0,
+        description: str = "описание",
+        year: int = 0,
+        rating: float = 0,
+        genre: str = "жанр",
+        status: str = "статус",
+        last_update: datetime = None,
+        author: str = "автор",
+        cover: str = "Обложка",
     ):
         self.book_id = book_id
         self.title = title
@@ -96,13 +96,11 @@ class User:
 
 
 class TelegramBot:
-    def __init__(self, sql_cursor, supabase):
+    def __init__(self, sql_cursor):
         """
         :param sql_cursor: это функция для запросов к бд, см. документацию по psycopg2
-        :param supabase: это клиент для связи с проектом, см. документацию по supabase
         """
         self.__sql_cursor = sql_cursor
-        self.__supabase = supabase
 
     def create_user(self, user: User) -> None:
         """
@@ -135,6 +133,13 @@ class TelegramBot:
         print(f"получен user c chat_id: {chat_id}")
         return None
 
+    def create_book(self, book: Book) -> None:
+        """
+        Закинь все данные, что есть в книге в бд
+        :param book:
+        :return:
+        """
+
     def get_books(self, chat_id: int) -> list[Book]:
         """
         Найди юзера в бд и собери все книги в список, преобразовав каждую в объект Book
@@ -145,17 +150,28 @@ class TelegramBot:
         print("книги получены")
         return [
             Book(
-                1,
                 "нига",
+                1,
                 "черный",
                 1984,
                 10,
                 "человек",
-                "раб",
+                "Читаю сейчас",
                 datetime(1, 1, 1),
                 "белый",
+                cover="https://i.pinimg.com/236x/c8/cc/24/c8cc24bba37a25c009647b8875aae0e3.jpg",
             )
         ]
+
+    def get_book_from_side_site(self, book: Book) -> Book:
+        """
+        Найди в инете через сторонний сайт и верни книгу по автору и названию.
+        Она должна содержать название, автора, жанр, год
+        Если не нашлось -> верни книгу, которую получил
+        :param book:
+        :return:
+        """
+        return book
 
     def get_books_over_year(self, books: list[Book]) -> int:
         """
@@ -208,6 +224,15 @@ class TelegramBot:
         :return:
         """
 
+    def get_note(self, chat_id: int, book_id: int) -> Union[Note, None]:
+        """
+        Достань заметку из бд или верни None
+        :param chat_id:
+        :param book_id:
+        :return:
+        """
+        return None
+
     def get_quotes(self, book: Book) -> list[Quote]:
         """
         Верни список цитат по book_id
@@ -229,6 +254,14 @@ class TelegramBot:
         :param book:
         :return:
         """
+
+    def voice_to_speech(self, file_url: str) -> str:
+        """
+        Верни текст из гс по url. url точно действительный.
+        :param file_url:
+        :return:
+        """
+        return "текст"
 
 
 if __name__ == "__main__":
