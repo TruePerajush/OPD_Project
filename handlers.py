@@ -13,8 +13,8 @@ from supabase import Client
 import re
 
 
-def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
-    bot = TelegramBot(sql_cursor)
+def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
+    bot = TelegramBot(connection)
 
     user_messages = {}
 

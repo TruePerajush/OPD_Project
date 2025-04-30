@@ -13,16 +13,14 @@ if __name__ == "__main__":
         load_dotenv(dotenv_path)
     else:
         raise Exception("No .env file found")
+    connection = f"{os.getenv("DRIVER")}://{os.getenv("USER")}:{os.getenv("PASSWORD")}@{os.getenv("HOST")}:{os.getenv("PORT")}/{os.getenv('DATABASE')}"
     try:
         with psycopg2.connect(
-            dbname=os.getenv("DATABASE"),
-            user=os.getenv("USER"),
-            password=os.getenv("PASSWORD"),
-            host=os.getenv("HOST"),
-            port=os.getenv("PORT"),
+            connection
         ) as conn:
-            with conn.cursor() as sql_cursor:
-                app = TeleBot(BOT_TOKEN)
-                init_bot(app, sql_cursor, BOT_TOKEN)
+            pass
+        app = TeleBot(BOT_TOKEN)
+        init_bot(app, connection, BOT_TOKEN)
+
     except psycopg2.OperationalError as e:
         print(f"Ошибка при подключение к бд: {e}")
