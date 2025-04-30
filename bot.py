@@ -152,31 +152,31 @@ class TelegramBot:
         print(f"аттрибут {attribute} изменен на {value}")
         pass
 
-def get_user(self, chat_id: int) -> User | None:
-    """
-    Верни юзера из бд. Если нет, верни None
-    :param chat_id: Идентификатор чата пользователя
-    :return: Объект User или None
-    """
-    conn = self.__sql_cursor.connection
-    query = "SELECT * FROM users WHERE chat_id = ?"
-    
-    try:
-        cursor = conn.cursor()
-        cursor.execute(query, (chat_id,))
-        user_data = cursor.fetchone()  
+    def get_user(self, chat_id: int) -> User | None:
+        """
+        Верни юзера из бд. Если нет, верни None
+        :param chat_id: Идентификатор чата пользователя
+        :return: Объект User или None
+        """
+        conn = self.__sql_cursor.connection
+        query = "SELECT * FROM users WHERE chat_id = ?"
         
-        if user_data:
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, (chat_id,))
+            user_data = cursor.fetchone()  
             
-            return User(*user_data)
-        else:
-            print(f"Пользователь с chat_id {chat_id} не найден")
+            if user_data:
+                
+                return User(*user_data)
+            else:
+                print(f"Пользователь с chat_id {chat_id} не найден")
+                return None
+        except Exception as e:
+            print(f"Ошибка при получении пользователя: {e}")
             return None
-    except Exception as e:
-        print(f"Ошибка при получении пользователя: {e}")
-        return None
-    finally:
-        cursor.close()  
+        finally:
+            cursor.close()  
     def create_book(self, book: Book) -> None:
         """
         Закинь все данные, что есть в книге в бд
