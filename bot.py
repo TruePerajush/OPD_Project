@@ -1,8 +1,10 @@
 from datetime import time, datetime
 from typing import Union
 from time import sleep
-
-
+import psycopg2
+from dotenv import load_dotenv
+import os
+from psycopg2 import sql
 class Quote:
     def __init__(
         self,
@@ -100,7 +102,9 @@ class TelegramBot:
         """
         :param sql_cursor: это функция для запросов к бд, см. документацию по psycopg2
         """
+
         self.__sql_cursor = sql_cursor
+
 
     def create_user(self, user: User) -> None:
         """
@@ -108,6 +112,19 @@ class TelegramBot:
         :param user:
         :return:
         """
+        conn=self.__sql_cursor.connection
+        with conn.cursor() as cur:
+            chat_id = user.chat_id
+            username = "unknown"
+            daily_goal = -1
+            weekly_goal = -1,
+            monthly_goal = -1,
+            annual_goal = -1,
+            cur.execute(
+                "INSERT INTO Users (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal) VALUES (%s,%s,%s,%s,%s)",
+                (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal)
+            )
+        conn.commit()
         print("user создан")
         pass
 
@@ -121,18 +138,45 @@ class TelegramBot:
         :param value:
         :return:
         """
+        conn=self.__sql_cursor.connection
+        with conn.cursor() as cursor:
+            update_query = sql.SQL("""
+            UPDATE Users
+            SET {attribute} = %s
+            WHERE {chat_id} = {user.chat_id}
+            """
+        )
+            new_attribute = value
+            cursor.execute(update_query, (new_attribute))
+
         print(f"аттрибут {attribute} изменен на {value}")
         pass
 
-    def get_user(self, chat_id: int) -> User:
-        """
-        Верни юзера из бд. Если нет, верни None
-        :param chat_id:
-        :return:
-        """
-        print(f"получен user c chat_id: {chat_id}")
+def get_user(self, chat_id: int) -> User | None:
+    """
+    Верни юзера из бд. Если нет, верни None
+    :param chat_id: Идентификатор чата пользователя
+    :return: Объект User или None
+    """
+    conn = self.__sql_cursor.connection
+    query = "SELECT * FROM users WHERE chat_id = ?"
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query, (chat_id,))
+        user_data = cursor.fetchone()  
+        
+        if user_data:
+            
+            return User(*user_data)
+        else:
+            print(f"Пользователь с chat_id {chat_id} не найден")
+            return None
+    except Exception as e:
+        print(f"Ошибка при получении пользователя: {e}")
         return None
-
+    finally:
+        cursor.close()  
     def create_book(self, book: Book) -> None:
         """
         Закинь все данные, что есть в книге в бд
