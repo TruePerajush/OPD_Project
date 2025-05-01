@@ -639,7 +639,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             except AttributeError:
                 book.title = message.text
             msg = app.send_message(
-                chat_id=message.chat.id, text="Введите автора. (Формат: Фамилия Имя)"
+                chat_id=message.chat.id, text="Введите автора. (Формат: Фамилия Имя Отчество)"
             )
             app.register_next_step_handler(
                 msg, lambda message: books_add_author(message, book)
@@ -651,15 +651,23 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                 file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
                 book.author = bot.voice_to_speech(file_url)
             except AttributeError:
-                book.author = message.text
-            book = bot.get_book_from_side_site(book)
-            msg = app.send_message(
-                chat_id=message.chat.id,
-                text=f"Название: {book.title}\n"
-                f"Автор: {book.author}\n"
-                f"Жанр: {book.genre}\n"
-                f"Год: {book.year}\n\n"
-                f"Это книга, которую вы хотите добавить? (y/n)",
+                author = message.text
+                if len(author.split(" ")) != 3:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="В сообщение должно быть три слова."
+                    )
+                    app.register_next_step_handler(msg, lambda message: books_add_author(message, book))
+                    return
+                book.author = author
+                book = bot.get_book_from_side_site(book)
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text=f"Название: {book.title}\n"
+                    f"Автор: {book.author}\n"
+                    f"Жанр: {book.genre}\n"
+                    f"Год: {book.year}\n\n"
+                    f"Это книга, которую вы хотите добавить? (y/n)",
             )
             app.register_next_step_handler(
                 msg, lambda message: books_first_confirmation(message, book)
