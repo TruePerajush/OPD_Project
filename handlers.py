@@ -216,16 +216,18 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             user = bot.get_user(message.chat.id)
 
             if user:
+                reminder_text = f"Напоминания:\n-Каждый день в {user.reminder}" if user.reminder else ""
+
                 msg = app.send_message(
-                    chat_id=message.chat.id,
-                    text=f"Ваши цели:\n"
-                    f"-Книг за год: {user.annual_goal}\n"
-                    f"-Книг за месяц: {user.monthly_goal}\n"
-                    f"-Книг за неделю: {user.weekly_goal}\n"
-                    f"-Минут в день: {user.daily_goal}\n\n"
-                    f'{f'Напоминания:\n-Каждый день в {user.reminder}' if user.reminder else ''}\n\n'
+                chat_id=message.chat.id,
+                text=f"Ваши цели:\n"
+                    f"- Книг за год: {user.annual_goal}\n"
+                    f"- Книг за месяц: {user.monthly_goal}\n"
+                    f"- Книг за неделю: {user.weekly_goal}\n"
+                    f"- Минут в день: {user.daily_goal}\n\n"
+                    f"{reminder_text}\n\n"
                     f"Все верно? (y/n)\n",
-                )
+        )
 
             else:
                 msg = app.send_message(
@@ -291,9 +293,9 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     message_id=message.message_id,
                     text="Невозможно собрать статистику. Пока нет добавленных книг.",
                 )
-
+        from typing import Tuple
         def statistic_report(message):
-            reports: (Report, Report) = bot.get_report(message.chat.id)
+            reports: Tuple[Report, Report] = bot.get_report(message.chat.id)
 
             progress = reports[0].pages_read / reports[1].pages_read * 100
 
@@ -940,8 +942,9 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                         media.append(InputMediaPhoto(media=to_send_back[j].cover))
                         note = bot.get_note(message.chat.id, to_send_back[j].book_id)
                         text += (
-                            f"Рейтинг: {note.rating if note else "нет"}\n"
-                            f"Заметка: {note.opinion if note else "нет"}\n\n"
+                           f"Рейтинг: {note.rating if note else 'нет'}\n"
+                           f"Заметка: {note.opinion if note else 'нет'}\n\n"
+
                         )
                     media[0 + 3 * (i - 1)].caption = text
                     app.send_media_group(chat_id=message.chat.id, media=media)
@@ -982,8 +985,8 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                                 )
                                 text += (
                                     f"{j + 1}. {to_send_back[j].title} - {to_send_back[j].author}\n"
-                                    f"Рейтинг: {note.rating if note else "нет"}\n"
-                                    f"Заметка: {note.opinion if note else "нет"}\n\n"
+                                    f"Рейтинг: {note.rating if note else 'нет'}\n"
+                                    f"Заметка: {note.opinion if note else 'нет'}\n\n"
                                 )
                             media[0 + 3 * (i)].caption = text
                             app.send_media_group(chat_id=message.chat.id, media=media)

@@ -13,7 +13,8 @@ if __name__ == "__main__":
         load_dotenv(dotenv_path)
     else:
         raise Exception("No .env file found")
-    connection = f"{os.getenv("DRIVER")}://{os.getenv("USER")}:{os.getenv("PASSWORD")}@{os.getenv("HOST")}:{os.getenv("PORT")}/{os.getenv('DATABASE')}"
+    connection = f"{os.getenv('DRIVER')}://{os.getenv('USER')}:{os.getenv('PASSWORD')}@{os.getenv('HOST')}:{os.getenv('PORT')}/{os.getenv('DATABASE')}"
+
     try:
         with psycopg2.connect(
             connection
