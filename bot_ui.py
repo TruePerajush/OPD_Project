@@ -1478,6 +1478,41 @@ class BookBot:
             [InlineKeyboardButton("Назад", callback_data="main_menu")]
         ])
 
+    # Обработка кнопки Назад (не работало...)
+    async def back_to_previous_state(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        # Получаем текущее состояние
+        current_state = await context.application.persistence.get_conversation(update.effective_chat.id)
+
+        # Создаем inline-клавиатуру для возврата
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("В главное меню", callback_data="main_menu")]
+        ])
+
+        # Логика переходов
+        if current_state in [States.ADD_BOOK_TITLE, States.ADD_BOOK_AUTHOR]:
+            await query.edit_message_text(
+                "Возврат в меню книг",
+                reply_markup=self.books_menu_keyboard()  # Используем метод, возвращающий InlineKeyboardMarkup
+            )
+            return States.BOOKS_MENU
+
+        elif current_state in [States.ADD_NOTE_TEXT]:
+            await query.edit_message_text(
+                "Возврат в меню заметок",
+                reply_markup=self.notes_menu_keyboard()  # Inline-клавиатура
+            )
+            return States.NOTES_MENU
+
+        # По умолчанию - в главное меню
+        await query.edit_message_text(
+            "Главное меню:",
+            reply_markup=self.main_menu_keyboard()  # Должен возвращать InlineKeyboardMarkup
+        )
+        return ConversationHandler.END
+    
     # Обработка кнопок
     async def cancel_operation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик отмены текущей операции"""
