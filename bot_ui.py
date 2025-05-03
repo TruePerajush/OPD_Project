@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 from telegram import (
@@ -76,20 +77,21 @@ class States:
     QUOTE_DETAILS = 37
 
     # Состояния для целей
-    SET_YEARLY_GOAL = 38
-    SET_MONTHLY_GOAL = 39
-    SET_WEEKLY_GOAL = 40
-    SET_DAILY_MINUTES = 41
-    SET_REMINDER = 42
-    SET_REMINDER_TIME = 43
-    CONFIRM_GOALS = 44
-    EDIT_GOALS = 45
+    SETUP_GOALS_QUESTION = 38
+    SET_YEARLY_GOAL = 39
+    SET_MONTHLY_GOAL = 40
+    SET_WEEKLY_GOAL = 41
+    SET_DAILY_MINUTES = 42
+    SET_REMINDER = 43
+    SET_REMINDER_TIME = 44
+    CONFIRM_GOALS = 45
+    EDIT_GOALS = 46
 
     # Состояния для статистики
-    STATS_MENU = 46
-    REPORT_SETTINGS = 47
-    SET_REPORT_FREQ = 48
-    SET_REPORT_TIME = 49
+    STATS_MENU = 47
+    REPORT_SETTINGS = 48
+    SET_REPORT_FREQ = 49
+    SET_REPORT_TIME = 50
 
 
 class BookBot:
@@ -161,6 +163,7 @@ class BookBot:
 
     # Процесс добавления книги
     async def add_book_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             f"{Config.EMOJI['books']} Введите название книги:",
             reply_markup=InlineKeyboardMarkup([self.back_button()])
@@ -1099,26 +1102,46 @@ class BookBot:
             )
             return States.EDIT_GOALS
         else:
-            # Если целей нет, начинаем процесс ввода
+            # Если целей нет, сначала спрашиваем, хочет ли пользователь их установить
+            keyboard = [
+                [InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="setup_goals_yes"),
+                 InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="setup_goals_no")]
+            ]
             await update.message.reply_text(
+                f"{Config.EMOJI['goals']} Хотите установить цели для чтения?",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            return States.SETUP_GOALS_QUESTION
+
+    async def handle_setup_goals_question(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        if query.data == "setup_goals_yes":
+            await query.edit_message_text(
                 f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за год: (можно пропустить /skip)"
             )
             return States.SET_YEARLY_GOAL
+        else:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="Обязательно попробуйте в следующий раз, это может помочь с мотивацией!",
+                reply_markup=self.main_menu_keyboard()
+            )
+            return ConversationHandler.END
 
     async def set_yearly_goal(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.message.text != '/skip':
             if not update.message.text.isdigit():
                 await update.message.reply_text(
-                    "Пожалуйста, введите число. Попробуйте еще раз:",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
+                    "Пожалуйста, введите число. Попробуйте еще раз:"
                 )
                 return States.SET_YEARLY_GOAL
 
             self.user_data[update.message.from_user.id]['yearly_goal'] = update.message.text
 
         await update.message.reply_text(
-            f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за месяц: (можно пропустить /skip)",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за месяц: (можно пропустить /skip)"
         )
         return States.SET_MONTHLY_GOAL
 
@@ -1126,16 +1149,14 @@ class BookBot:
         if update.message.text != '/skip':
             if not update.message.text.isdigit():
                 await update.message.reply_text(
-                    "Пожалуйста, введите число. Попробуйте еще раз:",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
+                    "Пожалуйста, введите число. Попробуйте еще раз:"
                 )
                 return States.SET_MONTHLY_GOAL
 
             self.user_data[update.message.from_user.id]['monthly_goal'] = update.message.text
 
         await update.message.reply_text(
-            f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за неделю: (можно пропустить /skip)",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за неделю: (можно пропустить /skip)"
         )
         return States.SET_WEEKLY_GOAL
 
@@ -1143,16 +1164,14 @@ class BookBot:
         if update.message.text != '/skip':
             if not update.message.text.isdigit():
                 await update.message.reply_text(
-                    "Пожалуйста, введите число. Попробуйте еще раз:",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
+                    "Пожалуйста, введите число. Попробуйте еще раз:"
                 )
                 return States.SET_WEEKLY_GOAL
 
             self.user_data[update.message.from_user.id]['weekly_goal'] = update.message.text
 
         await update.message.reply_text(
-            f"{Config.EMOJI['goals']} Сколько минут в день вы хотите выделить на чтение? (можно пропустить /skip)",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['goals']} Сколько минут в день вы хотите выделить на чтение? (можно пропустить /skip)"
         )
         return States.SET_DAILY_MINUTES
 
@@ -1160,8 +1179,7 @@ class BookBot:
         if update.message.text != '/skip':
             if not update.message.text.isdigit():
                 await update.message.reply_text(
-                    "Пожалуйста, введите число. Попробуйте еще раз:",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
+                    "Пожалуйста, введите число. Попробуйте еще раз:"
                 )
                 return States.SET_DAILY_MINUTES
 
@@ -1171,8 +1189,7 @@ class BookBot:
             [
                 InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="set_reminder_yes"),
                 InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="set_reminder_no")
-            ],
-            self.back_button()
+            ]
         ])
 
         await update.message.reply_text(
@@ -1185,8 +1202,7 @@ class BookBot:
         query = update.callback_query
         if query.data == "set_reminder_yes":
             await query.edit_message_text(
-                f"{Config.EMOJI['reminders']} Введите в какое время хотите получать уведомление (например, 20:00):",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                f"{Config.EMOJI['reminders']} Введите в какое время хотите получать уведомление (например, 20:00):"
             )
             return States.SET_REMINDER_TIME
         else:
@@ -1212,8 +1228,7 @@ class BookBot:
             [
                 InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="confirm_goals_yes"),
                 InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="confirm_goals_no")
-            ],
-            self.back_button()
+            ]
         ])
 
         if hasattr(update, 'edit_message_text'):
@@ -1229,14 +1244,12 @@ class BookBot:
             # Очищаем старые цели и начинаем процесс ввода заново
             self.user_data[query.from_user.id] = {}
             await query.edit_message_text(
-                f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за год: (можно пропустить /skip)",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за год: (можно пропустить /skip)"
             )
             return States.SET_YEARLY_GOAL
         else:
             await query.edit_message_text(
-                "Цели остались без изменений.",
-                reply_markup=self.main_menu_keyboard()
+                "Цели остались без изменений."
             )
             return ConversationHandler.END
 
@@ -1465,41 +1478,7 @@ class BookBot:
             [InlineKeyboardButton("Назад", callback_data="main_menu")]
         ])
 
-    # Обработка кнопки Назад (не работало...)
-    async def back_to_previous_state(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.answer()
-
-        # Получаем текущее состояние
-        current_state = await context.application.persistence.get_conversation(update.effective_chat.id)
-
-        # Создаем inline-клавиатуру для возврата
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("В главное меню", callback_data="main_menu")]
-        ])
-
-        # Логика переходов
-        if current_state in [States.ADD_BOOK_TITLE, States.ADD_BOOK_AUTHOR]:
-            await query.edit_message_text(
-                "Возврат в меню книг",
-                reply_markup=self.books_menu_keyboard()  # Используем метод, возвращающий InlineKeyboardMarkup
-            )
-            return States.BOOKS_MENU
-
-        elif current_state in [States.ADD_NOTE_TEXT]:
-            await query.edit_message_text(
-                "Возврат в меню заметок",
-                reply_markup=self.notes_menu_keyboard()  # Inline-клавиатура
-            )
-            return States.NOTES_MENU
-
-        # По умолчанию - в главное меню
-        await query.edit_message_text(
-            "Главное меню:",
-            reply_markup=self.main_menu_keyboard()  # Должен возвращать InlineKeyboardMarkup
-        )
-        return ConversationHandler.END
-
+    # Обработка кнопок
     async def cancel_operation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик отмены текущей операции"""
         await update.message.reply_text(
@@ -1508,7 +1487,7 @@ class BookBot:
         )
         return ConversationHandler.END
 
-    # Обработка кнопки Назад до меню раздела (работает)
+    # Обработка кнопки Назад до меню раздела
     async def back_to_book_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик кнопки 'Назад' для возврата в главное меню"""
         query = update.callback_query
@@ -1558,63 +1537,6 @@ class BookBot:
         )
         return States.QUOTES_MENU
 
-    async def back_to_goals_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Возврат на предыдущий шаг в целях"""
-        query = update.callback_query
-        await query.answer()
-
-        # Определяем текущее состояние по последнему сообщению
-        try:
-            last_message = query.message.text.lower()
-
-            if "книг за год" in last_message:
-                await query.edit_message_text(
-                    f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за год: (можно пропустить /skip)",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
-                )
-                return States.SET_YEARLY_GOAL
-
-            elif "книг за месяц" in last_message:
-                await query.edit_message_text(
-                    f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за месяц: (можно пропустить /skip)",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
-                )
-                return States.SET_MONTHLY_GOAL
-
-            elif "книг за неделю" in last_message:
-                await query.edit_message_text(
-                    f"{Config.EMOJI['goals']} Введите желаемое количество прочитанных книг за неделю: (можно пропустить /skip)",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
-                )
-                return States.SET_WEEKLY_GOAL
-
-            elif "минут в день" in last_message:
-                await query.edit_message_text(
-                    f"{Config.EMOJI['goals']} Сколько минут в день вы хотите выделить на чтение? (можно пропустить /skip)",
-                    reply_markup=InlineKeyboardMarkup([self.back_button()])
-                )
-                return States.SET_DAILY_MINUTES
-
-            elif "напоминание" in last_message:
-                keyboard = InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="set_reminder_yes"),
-                        InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="set_reminder_no")
-                    ],
-                    self.back_button()
-                ])
-                await query.edit_message_text(
-                    f"{Config.EMOJI['reminders']} Хотите поставить себе напоминание?",
-                    reply_markup=keyboard
-                )
-                return States.SET_REMINDER
-
-        except Exception as e:
-            print(f"Ошибка при обработке 'Назад': {e}")
-
-        # По умолчанию возвращаем в меню целей
-        return await self.goals_menu(update, context)
-
     async def back_to_stats_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Возврат в меню статистики"""
         query = update.callback_query
@@ -1631,6 +1553,15 @@ class BookBot:
             reply_markup=keyboard
         )
         return States.STATS_MENU
+
+    async def back_to_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        await query.edit_message_text(
+            "Главное меню:",
+            reply_markup=self.main_menu_keyboard()
+        )
+        return ConversationHandler.END
 
 # ==================== ЗАПУСК БОТА ==================== #
 def setup_conversation_handlers(bot_instance):
@@ -1731,6 +1662,12 @@ def setup_conversation_handlers(bot_instance):
     goals_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Text([f"{Config.EMOJI['goals']} Цели"]), bot_instance.goals_menu)],
         states={
+            States.SETUP_GOALS_QUESTION: [
+                CallbackQueryHandler(bot_instance.handle_setup_goals_question, pattern="^setup_goals_")
+            ],
+            States.EDIT_GOALS: [
+                CallbackQueryHandler(bot_instance.handle_edit_goals, pattern="^edit_goals_")
+            ],
             States.SET_YEARLY_GOAL: [MessageHandler(filters.TEXT | filters.COMMAND, bot_instance.set_yearly_goal)],
             States.SET_MONTHLY_GOAL: [MessageHandler(filters.TEXT | filters.COMMAND, bot_instance.set_monthly_goal)],
             States.SET_WEEKLY_GOAL: [MessageHandler(filters.TEXT | filters.COMMAND, bot_instance.set_weekly_goal)],
@@ -1740,8 +1677,9 @@ def setup_conversation_handlers(bot_instance):
             States.CONFIRM_GOALS: [CallbackQueryHandler(bot_instance.confirm_goals, pattern="^confirm_goals_")]
         },
         fallbacks=[
-            CallbackQueryHandler(bot_instance.back_to_goals_menu, pattern="^back$"),
-            CommandHandler('cancel', bot_instance.cancel_operation)
+            CommandHandler('cancel', bot_instance.cancel_operation),
+            CallbackQueryHandler(bot_instance.back_to_main_menu, pattern="^back$")
+
         ],
         per_message=False
     )
@@ -1779,7 +1717,6 @@ def main():
     handlers = setup_conversation_handlers(bot)
 
     application.add_handler(CommandHandler("start", bot.start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_main_menu))
 
     application.add_handler(handlers[0])  # book_conv
     application.add_handler(handlers[1])  # search_conv
@@ -1787,6 +1724,8 @@ def main():
     application.add_handler(handlers[3])  # notes_conv
     application.add_handler(handlers[4])  # goals_conv
     application.add_handler(handlers[5])  # stats_conv
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_main_menu))
 
     application.run_polling()
 
