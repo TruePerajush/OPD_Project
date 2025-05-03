@@ -173,8 +173,7 @@ class BookBot:
     async def add_book_title(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         self.user_data[update.message.from_user.id] = {'title': update.message.text}
         await update.message.reply_text(
-            f"{Config.EMOJI['author']} Введите автора (Формат: Фамилия Имя):",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['author']} Введите автора (Формат: Фамилия Имя):"
         )
         return States.ADD_BOOK_AUTHOR
 
@@ -201,8 +200,7 @@ class BookBot:
                 [
                     InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="confirm_api_data_yes"),
                     InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="confirm_api_data_no")
-                ],
-                self.back_button()
+                ]
             ])
 
             await update.message.reply_text(confirmation_msg, reply_markup=keyboard)
@@ -232,8 +230,7 @@ class BookBot:
                 [
                     InlineKeyboardButton("💤 Отложено", callback_data="status_paused"),
                     InlineKeyboardButton("📅 Планирую", callback_data="status_planned")
-                ],
-                self.back_button()
+                ]
             ])
 
             await query.edit_message_text(
@@ -251,8 +248,7 @@ class BookBot:
             [
                 InlineKeyboardButton("Наука", callback_data="genre_science"),
                 InlineKeyboardButton("Другое", callback_data="genre_other")
-            ],
-            self.back_button()
+            ]
         ])
         await update.message.reply_text(
             f"{Config.EMOJI['genre']} Выберите жанр:",
@@ -265,8 +261,7 @@ class BookBot:
         genre = query.data.replace("genre_", "")
         self.user_data[query.from_user.id]['genre'] = genre
         await query.edit_message_text(
-            f"{Config.EMOJI['year']} Введите год издания (например, 2001):\n\nМожно пропустить /skip",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['year']} Введите год издания (например, 2001):\n\nМожно пропустить /skip"
         )
         return States.ADD_BOOK_YEAR
 
@@ -282,8 +277,7 @@ class BookBot:
             [
                 InlineKeyboardButton("💤 Отложено", callback_data="status_paused"),
                 InlineKeyboardButton("📅 Планирую", callback_data="status_planned")
-            ],
-            self.back_button()
+            ]
         ])
 
         await update.message.reply_text(
@@ -322,8 +316,7 @@ class BookBot:
             [
                 InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="confirm_book_yes"),
                 InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="confirm_book_no")
-            ],
-            self.back_button()
+            ]
         ])
 
         await query.edit_message_text(confirmation_msg, reply_markup=keyboard)
@@ -333,8 +326,7 @@ class BookBot:
         query = update.callback_query
         if query.data == "confirm_book_no":
             await query.edit_message_text(
-                "Начнем процесс заново:",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                "Начнем процесс заново:"
             )
             return States.ADD_BOOK_START
         else:
@@ -342,7 +334,7 @@ class BookBot:
             # await self.save_book_to_db(query.from_user.id, self.user_data[query.from_user.id])
             await query.edit_message_text(
                 f"{Config.EMOJI['success']} Книга успешно добавлена!",
-                reply_markup=self.get_main_menu_keyboard()
+                reply_markup=self.main_menu_keyboard()
             )
             return ConversationHandler.END
 
@@ -375,8 +367,7 @@ class BookBot:
 
     async def search_by_author(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text(
-            f"{Config.EMOJI['author']} Введите автора:",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['author']} Введите автора:"
         )
         return States.SEARCH_BY_AUTHOR
 
@@ -396,8 +387,7 @@ class BookBot:
 
     async def search_by_year(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text(
-            f"{Config.EMOJI['year']} Введите год издания:",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['year']} Введите год издания:"
         )
         return States.SEARCH_BY_YEAR
 
@@ -417,8 +407,7 @@ class BookBot:
 
         if not books:
             await update.message.reply_text(
-                "Ничего не найдено. Попробуйте изменить критерии поиска.",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                "Ничего не найдено. Попробуйте изменить критерии поиска."
             )
             return States.SEARCH_METHOD
 
@@ -569,8 +558,7 @@ class BookBot:
                 InlineKeyboardButton("✏️ Изменить статус", callback_data=f"edit_status_{book['id']}"),
                 InlineKeyboardButton("📝 Добавить заметку", callback_data=f"add_note_{book['id']}"),
                 InlineKeyboardButton("💬 Добавить цитату", callback_data=f"add_quote_{book['id']}")
-            ],
-            self.back_button()
+            ]
         ])
 
         await update.callback_query.edit_message_text(
@@ -692,8 +680,7 @@ class BookBot:
                 [
                     InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="edit_note_yes"),
                     InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="edit_note_no")
-                ],
-                self.back_button()
+                ]
             ])
 
             await query.edit_message_text(
@@ -729,8 +716,7 @@ class BookBot:
             return States.ADD_NOTE_TEXT
         else:
             await query.edit_message_text(
-                "Заметка осталась без изменений.",
-                reply_markup=self.main_menu_keyboard()
+                "Заметка осталась без изменений."
             )
             return ConversationHandler.END
 
@@ -772,8 +758,7 @@ class BookBot:
             [
                 InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="confirm_note_yes"),
                 InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="confirm_note_no")
-            ],
-            self.back_button()
+            ]
         ])
 
         await query.edit_message_text(
@@ -798,8 +783,7 @@ class BookBot:
             )
         else:
             await query.edit_message_text(
-                "Давайте попробуем еще раз:",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                "Давайте попробуем еще раз:"
             )
             return States.ADD_NOTE_TEXT
 
@@ -888,21 +872,16 @@ class BookBot:
         return States.ADD_QUOTE_TEXT
 
     async def add_quote_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.message.text.lower() == 'назад':
-            return await self.back_to_previous_state(update, context)
-
         self.user_data[update.message.from_user.id]['quote'] = update.message.text
         await update.message.reply_text(
-            f"{Config.EMOJI['quote']} Укажите страницу цитаты (только число):",
-            reply_markup=InlineKeyboardMarkup([self.back_button()])
+            f"{Config.EMOJI['quote']} Укажите страницу цитаты (только число):"
         )
         return States.ADD_QUOTE_PAGE
 
     async def add_quote_page(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not update.message.text.isdigit():
             await update.message.reply_text(
-                "Пожалуйста, введите только число для страницы:",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                "Пожалуйста, введите только число для страницы:"
             )
             return States.ADD_QUOTE_PAGE
 
@@ -925,8 +904,7 @@ class BookBot:
             [
                 InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да", callback_data="confirm_quote_yes"),
                 InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет", callback_data="confirm_quote_no")
-            ],
-            self.back_button()
+            ]
         ])
 
         await update.message.reply_text(confirmation_msg, reply_markup=keyboard)
@@ -1008,8 +986,7 @@ class BookBot:
             [
                 InlineKeyboardButton(f"{Config.EMOJI['confirm']} Да, удалить", callback_data="confirm_delete_yes"),
                 InlineKeyboardButton(f"{Config.EMOJI['cancel']} Нет, оставить", callback_data="confirm_delete_no")
-            ],
-            self.back_button()
+            ]
         ])
 
         await update.callback_query.edit_message_text(
@@ -1037,8 +1014,7 @@ class BookBot:
             # )
 
             await query.edit_message_text(
-                f"{Config.EMOJI['success']} Цитата успешно сохранена!",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                f"{Config.EMOJI['success']} Цитата успешно сохранена!"
             )
 
             # Очищаем временные данные
@@ -1307,8 +1283,7 @@ class BookBot:
             ],
             [
                 InlineKeyboardButton(f"{Config.EMOJI['reminders']} Настройка отчетов", callback_data="setup_reports")
-            ],
-            self.back_button()
+            ]
         ])
 
         await update.message.reply_text(
@@ -1425,8 +1400,7 @@ class BookBot:
         # await self.db.save_report_frequency(update.effective_user.id, frequency)
 
         await query.edit_message_text(
-            f"✅ Частота отчетов установлена: {frequency}",
-            reply_markup=self.main_menu_keyboard()
+            f"✅ Частота отчетов установлена: {frequency}"
         )
         return ConversationHandler.END
 
@@ -1435,8 +1409,7 @@ class BookBot:
         # Простая проверка формата времени
         if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', update.message.text):
             await update.message.reply_text(
-                "Пожалуйста, введите время в формате ЧЧ:ММ (например, 20:00):",
-                reply_markup=InlineKeyboardMarkup([self.back_button()])
+                "Пожалуйста, введите время в формате ЧЧ:ММ (например, 20:00):"
             )
             return States.SET_REPORT_TIME
 
@@ -1447,8 +1420,7 @@ class BookBot:
         # await self.db.save_report_time(update.effective_user.id, time_str)
 
         await update.message.reply_text(
-            f"✅ Время отчетов установлено: {time_str}",
-            reply_markup=self.main_menu_keyboard()
+            f"✅ Время отчетов установлено: {time_str}"
         )
         return ConversationHandler.END
 
@@ -1478,42 +1450,6 @@ class BookBot:
             [InlineKeyboardButton("Назад", callback_data="main_menu")]
         ])
 
-    # Обработка кнопки Назад (не работало...)
-    async def back_to_previous_state(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.answer()
-
-        # Получаем текущее состояние
-        current_state = await context.application.persistence.get_conversation(update.effective_chat.id)
-
-        # Создаем inline-клавиатуру для возврата
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("В главное меню", callback_data="main_menu")]
-        ])
-
-        # Логика переходов
-        if current_state in [States.ADD_BOOK_TITLE, States.ADD_BOOK_AUTHOR]:
-            await query.edit_message_text(
-                "Возврат в меню книг",
-                reply_markup=self.books_menu_keyboard()  # Используем метод, возвращающий InlineKeyboardMarkup
-            )
-            return States.BOOKS_MENU
-
-        elif current_state in [States.ADD_NOTE_TEXT]:
-            await query.edit_message_text(
-                "Возврат в меню заметок",
-                reply_markup=self.notes_menu_keyboard()  # Inline-клавиатура
-            )
-            return States.NOTES_MENU
-
-        # По умолчанию - в главное меню
-        await query.edit_message_text(
-            "Главное меню:",
-            reply_markup=self.main_menu_keyboard()  # Должен возвращать InlineKeyboardMarkup
-        )
-        return ConversationHandler.END
-    
-    # Обработка кнопок
     async def cancel_operation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик отмены текущей операции"""
         await update.message.reply_text(
@@ -1636,7 +1572,11 @@ def setup_conversation_handlers(bot_instance):
             States.SEARCH_BY_AUTHOR: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.show_search_results)],
             States.SEARCH_BY_GENRE: [CallbackQueryHandler(bot_instance.show_search_results, pattern="^genre_")],
-            States.SEARCH_BY_YEAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.show_search_results)]
+            States.SEARCH_BY_YEAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.show_search_results)],
+            States.SEARCH_RESULTS: [
+                CallbackQueryHandler(bot_instance.handle_next_page, pattern="^next_page$"),
+                CallbackQueryHandler(bot_instance.show_book_details, pattern="^book_")
+            ]
         },
         fallbacks=[
             CallbackQueryHandler(bot_instance.back_to_book_menu, pattern="^back$"),
@@ -1654,17 +1594,15 @@ def setup_conversation_handlers(bot_instance):
             ],
             States.BOOKS_BY_STATUS: [
                 CallbackQueryHandler(bot_instance.show_book_details, pattern="^book_"),
-                CallbackQueryHandler(bot_instance.handle_next_page, pattern="^next_page$"),
-                CallbackQueryHandler(bot_instance.back_to_previous_state, pattern="^back$")
+                CallbackQueryHandler(bot_instance.handle_next_page, pattern="^next_page$")
             ],
             States.BOOK_DETAILS: [
                 CallbackQueryHandler(bot_instance.edit_book_status, pattern="^edit_status_"),
                 CallbackQueryHandler(bot_instance.add_note_to_book, pattern="^add_note_"),
-                CallbackQueryHandler(bot_instance.add_quote_to_book, pattern="^add_quote_"),
-                CallbackQueryHandler(bot_instance.back_to_previous_state, pattern="^back$")
+                CallbackQueryHandler(bot_instance.add_quote_to_book, pattern="^add_quote_")
             ],
             States.EDIT_BOOK: [
-                # Обработчики для изменения статуса книги
+                CallbackQueryHandler(bot_instance.update_book_status, pattern="^status_")
             ]
         },
         fallbacks=[
@@ -1681,6 +1619,9 @@ def setup_conversation_handlers(bot_instance):
             States.SELECT_BOOK_FOR_NOTE: [
                 CallbackQueryHandler(bot_instance.select_book_for_note, pattern="^book_"),
                 CallbackQueryHandler(bot_instance.handle_next_page_notes, pattern="^next_page$")
+            ],
+            States.EDIT_EXISTING_NOTE: [
+                CallbackQueryHandler(bot_instance.handle_edit_note_decision, pattern="^edit_note_")
             ],
             States.ADD_NOTE_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.add_note_text)],
             States.ADD_NOTE_RATING: [CallbackQueryHandler(bot_instance.add_note_rating, pattern="^rating_")],
@@ -1731,6 +1672,12 @@ def setup_conversation_handlers(bot_instance):
             States.REPORT_SETTINGS: [
                 CallbackQueryHandler(bot_instance.set_report_frequency, pattern="^set_report_freq$"),
                 CallbackQueryHandler(bot_instance.set_report_time, pattern="^set_report_time$")
+            ],
+            States.SET_REPORT_FREQ: [
+                CallbackQueryHandler(bot_instance.handle_report_frequency, pattern="^freq_")
+            ],
+            States.SET_REPORT_TIME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.handle_report_time)
             ]
         },
         fallbacks=[
