@@ -98,6 +98,10 @@ class BookBot:
     def __init__(self):
         self.user_data = {}
 
+    def _chunk_buttons(self, buttons, chunk_size):
+        """Разбивает кнопки на ряды по chunk_size кнопок в каждом"""
+        return [buttons[i:i + chunk_size] for i in range(0, len(buttons), chunk_size)]
+
     # Главное меню
     def main_menu_keyboard(self):
         return ReplyKeyboardMarkup([
