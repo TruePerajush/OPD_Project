@@ -84,18 +84,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             goals_start(call.message)
 
         def goals_start(message: Message):
-            # if bot.get_user(call.message.chat.id).annual_goal == -1:
-            #     msg = app.edit_message_text(
-            #         chat_id=call.message.chat.id,
-            #         message_id=call.message.message_id,
-            #         text="Введите желаемое количество прочитанных книг за год.",
-            #         reply_markup=None,
-            #     )
-            #     app.register_next_step_handler(msg, goals_year)
-            # это в продакшн
-            if not bot.get_user(message.chat.id):
-                print(message.text)
-
+            if bot.get_user(message.chat.id).annual_goal == -1:
                 msg = app.edit_message_text(
                     chat_id=message.chat.id,
                     message_id=message.message_id,
