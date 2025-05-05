@@ -285,9 +285,12 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
         from typing import Tuple
         def statistic_report(message):
             reports: Tuple[Report, Report] = bot.get_report(message.chat.id)
+            try:
+                progress = reports[0].pages_read / reports[1].pages_read * 100
+            except ZeroDivisionError as e:
+                progress = 0
 
-            progress = reports[0].pages_read / reports[1].pages_read * 100
-
+            
             app.send_message(
                 chat_id=message.chat.id,
                 text=f"Ваши результаты за неделю.\n"
@@ -901,9 +904,10 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                 else:
                     match number:
                         case 1:
-                            text = "автора."
-                        case 2:
                             text = "название."
+                            
+                        case 2:
+                            text = "автора."
                         case 3:
                             text = "жанр."
                     msg = app.send_message(

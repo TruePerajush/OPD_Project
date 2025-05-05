@@ -18,12 +18,14 @@ class Quote:
         page_number: int,
         text: str,
         chat_id: int = None,
+        quote_id: int = 0
     ):
         self.book_id = book_id
         self.user_id = user_id
         self.page_number = page_number
         self.text = text
         self.chat_id = chat_id
+        self.quote_id = quote_id
 
 
 class Note:
@@ -85,13 +87,15 @@ class Book:
 class User:
     def __init__(
         self,
-        username: str,
-        chat_id: int,
+        user_id: int = 0,
+        username: str="0",
+        chat_id: int=0,
         daily_goal: int = -1,
         weekly_goal: int = -1,
         monthly_goal: int = -1,
         annual_goal: int = -1,
         reminder: time = None,
+
     ):
         self.username: str = username
         self.chat_id: int = chat_id
@@ -100,6 +104,7 @@ class User:
         self.monthly_goal: int = monthly_goal
         self.annual_goal: int = annual_goal
         self.reminder: time = reminder
+        self.user_id = user_id
 
 
 class TelegramBot:
@@ -174,16 +179,18 @@ class TelegramBot:
         """
 
         conn = self._get_conn()
-        query = 'SELECT * FROM "Users" WHERE chat_id = %s'
+        query = 'SELECT user_id,username,daily_goal,weekly_goal,monthly_goal,annual_goal,reminder,last_update FROM "Users" WHERE chat_id = %s'
         
         try:
-            cursor = conn.cursor()
-            cursor.execute(query, (chat_id))
-            user_data = cursor.fetchone()  
+            cursor = conn.cursor()# i  = * ( long * ) &y;   evil floating point bit level hacking
+            cursor.execute(query, (chat_id,))#what the fuck?
+            row = cursor.fetchall() 
             
-            if user_data:
-                
-                return User(*user_data)
+             
+            
+            if row[0]:
+
+                return User(*row[0])
             else:
                 print(f"Пользователь с chat_id {chat_id} не найден")
                 return None
@@ -617,6 +624,8 @@ class TelegramBot:
         cursor = None
         try:
             cursor = conn.cursor()
+            cursor.execute("""SELECT user_id FROM "Users" WHERE chat_id = %s""", (quote.chat_id,))
+            quote.user_id = cursor.fetchone()
             cursor.execute("""
                 INSERT INTO "Quotes" (book_id, user_id, page_number, text)
                 VALUES (%s, %s, %s, %s)
