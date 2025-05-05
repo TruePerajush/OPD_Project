@@ -119,19 +119,25 @@ class TelegramBot:
         :param user:
         :return:
         """
-        conn=self.__sql_cursor.connection
-        with conn.cursor() as cur:
-            chat_id = user.chat_id
-            username = "unknown"
-            daily_goal = -1
-            weekly_goal = -1,
-            monthly_goal = -1,
-            annual_goal = -1,
-            cur.execute(
-                "INSERT INTO Users (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal) VALUES (%s,%s,%s,%s,%s)",
-                (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal)
-            )
-        conn.commit()
+        try:
+            conn=self.__sql_cursor.connection
+            with conn.cursor() as cursor:
+                chat_id = user.chat_id
+                username = "unknown"
+                daily_goal = -1
+                weekly_goal = -1,
+                monthly_goal = -1,
+                annual_goal = -1,
+                cursor.execute(
+                    "INSERT INTO Users (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal) VALUES (%s,%s,%s,%s,%s)",
+                    (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal)
+                )
+            conn.commit()
+        except Exception as e:
+            print(f"Ошибка при получении пользователя: {e}")
+            return None
+        finally:
+            cursor.close()    
         print("user создан")
         pass
 
@@ -145,17 +151,22 @@ class TelegramBot:
         :param value:
         :return:
         """
-        conn=self.__sql_cursor.connection
-        with conn.cursor() as cursor:
-            update_query = sql.SQL("""
-            UPDATE Users
-            SET {attribute} = %s
-            WHERE {chat_id} = {user.chat_id}
-            """
-        )
-            new_attribute = value
-            cursor.execute(update_query, (new_attribute))
-
+        try:
+            conn = self._get_conn()
+            with conn.cursor() as cursor:
+                update_query = sql.SQL("""
+                UPDATE Users
+                SET {attribute} = %s
+                WHERE {chat_id} = {user.chat_id}
+                """
+            )
+                new_attribute = value
+                cursor.execute(update_query, (new_attribute))
+        except Exception as e:
+            print(f"Ошибка при получении пользователя: {e}")
+            return None
+        finally:
+            cursor.close()  
         print(f"аттрибут {attribute} изменен на {value}")
         pass
 
@@ -165,7 +176,8 @@ class TelegramBot:
         :param chat_id: Идентификатор чата пользователя
         :return: Объект User или None
         """
-        conn = self.__sql_cursor.connection
+
+        conn = self._get_conn()
         query = "SELECT * FROM users WHERE chat_id = ?"
         
         try:
@@ -415,38 +427,7 @@ class TelegramBot:
         Бесконечный цикл, запускает отчёты по понедельникам.
         Удаляет старые (старше 2 недель) и создаёт новые.
         """
-        while True:
-            now = datetime.now()
-            print(f"[{now}] Проверка на понедельник...")
-
-            if now.weekday() == 0:  
-                try:
-                    conn = self._get_conn()
-                    with conn.cursor() as cur:
-                        cur.execute("""
-                            DELETE FROM "Reports"
-                            WHERE last_update < now() - interval '14 days'
-                        """)
-                        cur.execute("""SELECT user_id FROM "Users" """)
-                        users = cur.fetchall()
-                        for (user_id,) in users:
-                            cur.execute("""
-                                INSERT INTO "Reports" (user_id, books_read, pages_read)
-                                VALUES (%s, 0, 0)
-                            """, (user_id,))
-
-                        conn.commit()
-                        print(f"[{now}] Отчёты созданы.")
-                except Exception as e:
-                    print(f"Ошибка при создании отчётов: {e}")
-                    if conn:
-                        conn.rollback()
-                finally:
-                    if conn:
-                        conn.close()
-                time.sleep(86400)
-            else:
-                time.sleep(21600)
+       
 
     def get_report(self, chat_id: int) -> tuple[Report, Report]:
         """
@@ -509,7 +490,7 @@ class TelegramBot:
             :param note:
             :return:
             """
-            conn = self.__sql_cursor.connection
+            conn = self._get_conn()
             cursor = None
             try:
                 cursor = conn.cursor()
@@ -542,7 +523,7 @@ class TelegramBot:
             :param book_id:
             :return:
             """
-            conn = self.__sql_cursor.connection
+            conn = self._get_conn()
             cursor = None
             try:
                 cursor = conn.cursor()
@@ -570,7 +551,7 @@ class TelegramBot:
         :param book:
         :return:
         """
-        conn = self.__sql_cursor.connection
+        conn = self._get_conn()
         cursor = None
         quotes = []
         try:
@@ -600,7 +581,7 @@ class TelegramBot:
         :param quote:
         :return:
         """
-        conn = self.__sql_cursor.connection
+        conn = self._get_conn()
         cursor = None
         try:
             cursor = conn.cursor()
@@ -628,7 +609,7 @@ class TelegramBot:
         :param book:
         :return:
         """
-        conn = self.__sql_cursor.connection
+        conn = self._get_conn()
         cursor = None
         try:
             cursor = conn.cursor()
