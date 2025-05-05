@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 import os
 from psycopg2 import sql
 import requests
-import speech_recognition as sr
 import tempfile
 from collections import Counter
 class Quote:
