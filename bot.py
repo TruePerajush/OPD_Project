@@ -365,7 +365,7 @@ class TelegramBot:
             year = int(published_date[:4]) if published_date[:4].isdigit() else book.year
             categories = item.get("categories", ["жанр"])
             genre = categories[0]
-
+            
             return Book(
                 title=title,
                 author=", ".join(authors),
