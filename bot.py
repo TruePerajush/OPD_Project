@@ -120,17 +120,17 @@ class TelegramBot:
         :return:
         """
         try:
-            conn=self.__sql_cursor.connection
+            conn = self._get_conn()
             with conn.cursor() as cursor:
                 chat_id = user.chat_id
-                username = "unknown"
+                username = "@unknown"
                 daily_goal = -1
                 weekly_goal = -1,
                 monthly_goal = -1,
                 annual_goal = -1,
                 cursor.execute(
-                    "INSERT INTO Users (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal) VALUES (%s,%s,%s,%s,%s)",
-                    (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal)
+                    'INSERT INTO "Users" (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal,username) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (chat_id) DO NOTHING;',
+                    (chat_id, daily_goal, weekly_goal,monthly_goal,annual_goal,username)
                 )
             conn.commit()
         except Exception as e:
@@ -154,11 +154,7 @@ class TelegramBot:
         try:
             conn = self._get_conn()
             with conn.cursor() as cursor:
-                update_query = sql.SQL("""
-                UPDATE Users
-                SET {attribute} = %s
-                WHERE {chat_id} = {user.chat_id}
-                """
+                update_query = sql.SQL('UPDATE "Users" SET {attribute} = %s WHERE {chat_id} = {user.chat_id}'
             )
                 new_attribute = value
                 cursor.execute(update_query, (new_attribute))
@@ -178,11 +174,11 @@ class TelegramBot:
         """
 
         conn = self._get_conn()
-        query = "SELECT * FROM users WHERE chat_id = ?"
+        query = 'SELECT * FROM "Users" WHERE chat_id = %s'
         
         try:
             cursor = conn.cursor()
-            cursor.execute(query, (chat_id,))
+            cursor.execute(query, (chat_id))
             user_data = cursor.fetchone()  
             
             if user_data:
@@ -197,7 +193,7 @@ class TelegramBot:
         finally:
             cursor.close()  
             
-    def create_book(self, book: Book) -> None:
+    def create_book(self, book: Book, chat_id: int):
         """
         Добавляет книгу в БД со всеми связями: авторы, жанры, статус, полка (shelf).
         """
@@ -205,12 +201,13 @@ class TelegramBot:
         try:
             conn = self._get_conn()
             with conn.cursor() as cur:
-            
+                
                 cur.execute("""
-                    INSERT INTO "Books" (book_id, title, description, year, cover, last_update)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (book.book_id, book.title, book.description, book.year, book.cover, book.last_update))
-
+                    INSERT INTO "Books" ( title, description, year, cover, last_update)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, ( book.title, book.description, book.year, book.cover, datetime.now()))
+                cur.execute("""SELECT book_id FROM "Books" WHERE title = %s""", (book.title,))
+                book.book_id= cur.fetchone()
                 parts = book.author.split(maxsplit=2)
                 name = parts[0]
                 surname = parts[1]
@@ -227,28 +224,30 @@ class TelegramBot:
                     VALUES (%s, %s)
                 """, (book.book_id, author_id))
 
-                for genre in book.genres:
-                    cur.execute("""SELECT genre_id FROM "Genres" WHERE genre = %s""", (genre,))
-                    row = cur.fetchone()
-                    if row:
-                        genre_id = row[0]
-                    else:
-                        cur.execute("""INSERT INTO "Genres" (genre) VALUES (%s) RETURNING genre_id""", (genre,))
-                        genre_id = cur.fetchone()[0]
-                    cur.execute("""INSERT INTO book_genres (book_id, genre_id) VALUES (%s, %s)""", (book.book_id, genre_id))
+                
+                cur.execute("""SELECT genre_id FROM "Genres" WHERE genre = %s""", (book.genre,))
+                row = cur.fetchone()
+                if row:
+                    genre_id = row[0]
+                else:
+                    cur.execute("""INSERT INTO "Genres" (genre) VALUES (%s) RETURNING genre_id""", (book.genre,)) 
+                    genre_id = cur.fetchone()[0]
+                cur.execute("""INSERT INTO book_genres (book_id, genre_id) VALUES (%s, %s)""", (book.book_id, genre_id))
 
                 cur.execute("""SELECT status_id FROM "Statuses" WHERE status = %s""", (book.status,))
                 row = cur.fetchone()
+                
                 if row:
                     status_id = row[0]
                 else:
                     cur.execute("""INSERT INTO "Statuses" (status) VALUES (%s) RETURNING status_id""", (book.status,))
                     status_id = cur.fetchone()[0]
-
+                cur.execute('SELECT user_id FROM "Users" WHERE chat_id = %s', (chat_id,))
+                result = cur.fetchone()
                 cur.execute("""
                     INSERT INTO "Shelfs" (user_id, book_id, status_id, progress)
                     VALUES (%s, %s, %s, %s)
-                """, (book.user_id, book.book_id, status_id, book.progress))
+                """, (result, book.book_id, status_id, -1))
 
                 conn.commit()
 
@@ -272,9 +271,9 @@ class TelegramBot:
         try:
             conn = self._get_conn()
             with conn.cursor() as cur:
-                user = self.get_user(chat_id)
-                user_id = user.user_id
-
+                
+                cur.execute("""SELECT user_id FROM "Users" WHERE chat_id = %s""", (chat_id,))
+                user_id = cur.fetchone()
                 cur.execute("""
                     SELECT b.book_id, b.title, b.description, b.year, b.cover,
                         st.status, s.last_update
@@ -427,6 +426,38 @@ class TelegramBot:
         Бесконечный цикл, запускает отчёты по понедельникам.
         Удаляет старые (старше 2 недель) и создаёт новые.
         """
+        while True:
+            now = datetime.now()
+            print(f"[{now}] Проверка на понедельник...")
+
+            if now.weekday() == 0:  
+                try:
+                    conn = self._get_conn()
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            DELETE FROM "Reports"
+                            WHERE last_update < now() - interval '14 days'
+                        """)
+                        cur.execute("""SELECT user_id FROM "Users" """)
+                        users = cur.fetchall()
+                        for (user_id,) in users:
+                            cur.execute("""
+                                INSERT INTO "Reports" (user_id, books_read, pages_read)
+                                VALUES (%s, 0, 0)
+                            """, (user_id,))
+
+                        conn.commit()
+                        print(f"[{now}] Отчёты созданы.")
+                except Exception as e:
+                    print(f"Ошибка при создании отчётов: {e}")
+                    if conn:
+                        conn.rollback()
+                finally:
+                    if conn:
+                        conn.close()
+                time.sleep(86400)
+            else:
+                time.sleep(21600)
        
 
     def get_report(self, chat_id: int) -> tuple[Report, Report]:
@@ -495,13 +526,14 @@ class TelegramBot:
             try:
                 cursor = conn.cursor()
                 with conn.cursor() as cur:
-                    user_id = note.user_id
+                    cur.execute("""SELECT user_id FROM "Users" WHERE chat_id = %s""", (note.chat_id,))
+                    user_id = cur.fetchone()
                     book_id = note.book_id
                     rating = note.rating
                     opinion = note.opinion
 
                     cur.execute("""
-                        INSERT INTO Notes (user_id, book_id, rating, opinion)
+                        INSERT INTO "Notes" (user_id, book_id, rating, opinion)
                         VALUES (%s, %s, %s, %s)
                         ON CONFLICT (user_id, book_id)
                         DO UPDATE SET rating = EXCLUDED.rating, opinion = EXCLUDED.opinion;
@@ -636,28 +668,14 @@ class TelegramBot:
             if cursor:
                 cursor.close()
 
-
+    
     def voice_to_speech(self, file_url: str) -> str:
         """
         Верни текст из гс по url. url точно действительный.
-        :param file_url:
-        :return:
         """
-        try:
-            response = requests.get(file_url)
-            response.raise_for_status()
-            with tempfile.NamedTemporaryFile(suffix=".ogg", delete=True) as temp_audio:
-                temp_audio.write(response.content)
-                temp_audio.flush()
-                recognizer = sr.Recognizer()
-                with sr.AudioFile(temp_audio.name) as source:
-                    audio = recognizer.record(source)
-                    text = recognizer.recognize_google(audio, language="ru-RU")
-                    return text
+        
 
-        except Exception as e:
-            print(f"Ошибка при распознавании речи: {e}")
-            return "Ошибка при распознавании речи"
+        print("ИДИТЕ НАХУЙ С ГС СВОИМИ")
 
 
 if __name__ == "__main__":

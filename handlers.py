@@ -768,17 +768,26 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
 
         def books_cover(message: Message, book: Book):
             try:
-                photo = message.photo[-1]
-                file_id = photo.file_id
-                file_info = app.get_file(file_id)
-                book.cover = file_info
-                msg = app.send_message(
-                    chat_id=message.chat.id,
-                    text="Выберите статус книги: \n"
-                    "1. Читаю сейчас\n"
-                    "2. Прочитано\n"
-                    "3. Отложено\n",
-                )
+                if message.text == "0":
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="https://img.freepik.com/premium-photo/white-background-with-black-white-image-white-background_796580-1989.jpg?w=1380\nВыберите статус книги: \n"
+                             "1. Читаю сейчас\n"
+                             "2. Прочитано\n"
+                             "3. Отложено\n",
+                    )
+                else:
+                    photo = message.photo[-1]
+                    file_id = photo.file_id
+                    file_info = app.get_file(file_id)
+                    book.cover = file_info
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="Выберите статус книги: \n"
+                        "1. Читаю сейчас\n"
+                        "2. Прочитано\n"
+                        "3. Отложено\n",
+                    )
                 app.register_next_step_handler(
                     msg, lambda message: books_status(message, book)
                 )
@@ -808,7 +817,6 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     app.register_next_step_handler(
                         msg, lambda message: books_cover(message, book)
                     )
-
         def books_status(message: Message, book: Book):
             try:
                 number = int(message.text)
@@ -850,7 +858,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
 
         def books_final_confirmation(message: Message, book: Book):
             if message.text == "y":
-                bot.create_book(book)
+                bot.create_book(book, message.chat.id)
                 app.send_message(chat_id=message.chat.id, text="Книга создана.")
             elif message.text == "n":
                 msg = app.send_message(
@@ -992,7 +1000,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
         def books_users_books(message: Message):
             books = bot.get_books(message.chat.id)
 
-            if books:
+            if len(books):
                 print("Тута")
                 sorted_by_status = {
                     "Читаю сейчас": 0,
