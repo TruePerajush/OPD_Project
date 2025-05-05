@@ -8,11 +8,11 @@ from handlers import init_bot
 
 if __name__ == "__main__":
     dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
     if os.path.exists(dotenv_path):
         load_dotenv(dotenv_path)
     else:
         raise Exception("No .env file found")
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
     try:
         with psycopg2.connect(
             dbname=os.getenv("DATABASE"),

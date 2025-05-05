@@ -13,8 +13,8 @@ from supabase import Client
 import re
 
 
-def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
-    bot = TelegramBot(sql_cursor)
+def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
+    bot = TelegramBot(connection)
 
     user_messages = {}
 
@@ -84,18 +84,7 @@ def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
             goals_start(call.message)
 
         def goals_start(message: Message):
-            # if bot.get_user(call.message.chat.id).annual_goal == -1:
-            #     msg = app.edit_message_text(
-            #         chat_id=call.message.chat.id,
-            #         message_id=call.message.message_id,
-            #         text="Введите желаемое количество прочитанных книг за год.",
-            #         reply_markup=None,
-            #     )
-            #     app.register_next_step_handler(msg, goals_year)
-            # это в продакшн
-            if not bot.get_user(message.chat.id):
-                print(message.text)
-
+            if bot.get_user(message.chat.id).annual_goal == -1:
                 msg = app.edit_message_text(
                     chat_id=message.chat.id,
                     message_id=message.message_id,
@@ -216,16 +205,18 @@ def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
             user = bot.get_user(message.chat.id)
 
             if user:
+                reminder_text = f"Напоминания:\n-Каждый день в {user.reminder}" if user.reminder else ""
+
                 msg = app.send_message(
-                    chat_id=message.chat.id,
-                    text=f"Ваши цели:\n"
-                    f"-Книг за год: {user.annual_goal}\n"
-                    f"-Книг за месяц: {user.monthly_goal}\n"
-                    f"-Книг за неделю: {user.weekly_goal}\n"
-                    f"-Минут в день: {user.daily_goal}\n\n"
-                    f'{f'Напоминания:\n-Каждый день в {user.reminder}' if user.reminder else ''}\n\n'
+                chat_id=message.chat.id,
+                text=f"Ваши цели:\n"
+                    f"- Книг за год: {user.annual_goal}\n"
+                    f"- Книг за месяц: {user.monthly_goal}\n"
+                    f"- Книг за неделю: {user.weekly_goal}\n"
+                    f"- Минут в день: {user.daily_goal}\n\n"
+                    f"{reminder_text}\n\n"
                     f"Все верно? (y/n)\n",
-                )
+        )
 
             else:
                 msg = app.send_message(
@@ -291,9 +282,9 @@ def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
                     message_id=message.message_id,
                     text="Невозможно собрать статистику. Пока нет добавленных книг.",
                 )
-
+        from typing import Tuple
         def statistic_report(message):
-            reports: (Report, Report) = bot.get_report(message.chat.id)
+            reports: Tuple[Report, Report] = bot.get_report(message.chat.id)
 
             progress = reports[0].pages_read / reports[1].pages_read * 100
 
@@ -639,7 +630,7 @@ def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
             except AttributeError:
                 book.title = message.text
             msg = app.send_message(
-                chat_id=message.chat.id, text="Введите автора. (Формат: Фамилия Имя)"
+                chat_id=message.chat.id, text="Введите автора. (Формат: Фамилия Имя Отчество)"
             )
             app.register_next_step_handler(
                 msg, lambda message: books_add_author(message, book)
@@ -651,15 +642,23 @@ def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
                 file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
                 book.author = bot.voice_to_speech(file_url)
             except AttributeError:
-                book.author = message.text
-            book = bot.get_book_from_side_site(book)
-            msg = app.send_message(
-                chat_id=message.chat.id,
-                text=f"Название: {book.title}\n"
-                f"Автор: {book.author}\n"
-                f"Жанр: {book.genre}\n"
-                f"Год: {book.year}\n\n"
-                f"Это книга, которую вы хотите добавить? (y/n)",
+                author = message.text
+                if len(author.split(" ")) != 3:
+                    msg = app.send_message(
+                        chat_id=message.chat.id,
+                        text="В сообщение должно быть три слова."
+                    )
+                    app.register_next_step_handler(msg, lambda message: books_add_author(message, book))
+                    return
+                book.author = author
+                book = bot.get_book_from_side_site(book)
+                msg = app.send_message(
+                    chat_id=message.chat.id,
+                    text=f"Название: {book.title}\n"
+                    f"Автор: {book.author}\n"
+                    f"Жанр: {book.genre}\n"
+                    f"Год: {book.year}\n\n"
+                    f"Это книга, которую вы хотите добавить? (y/n)",
             )
             app.register_next_step_handler(
                 msg, lambda message: books_first_confirmation(message, book)
@@ -932,8 +931,9 @@ def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
                         media.append(InputMediaPhoto(media=to_send_back[j].cover))
                         note = bot.get_note(message.chat.id, to_send_back[j].book_id)
                         text += (
-                            f"Рейтинг: {note.rating if note else "нет"}\n"
-                            f"Заметка: {note.opinion if note else "нет"}\n\n"
+                           f"Рейтинг: {note.rating if note else 'нет'}\n"
+                           f"Заметка: {note.opinion if note else 'нет'}\n\n"
+
                         )
                     media[0 + 3 * (i - 1)].caption = text
                     app.send_media_group(chat_id=message.chat.id, media=media)
@@ -974,8 +974,8 @@ def init_bot(app: TeleBot, sql_cursor, BOT_TOKEN: str):
                                 )
                                 text += (
                                     f"{j + 1}. {to_send_back[j].title} - {to_send_back[j].author}\n"
-                                    f"Рейтинг: {note.rating if note else "нет"}\n"
-                                    f"Заметка: {note.opinion if note else "нет"}\n\n"
+                                    f"Рейтинг: {note.rating if note else 'нет'}\n"
+                                    f"Заметка: {note.opinion if note else 'нет'}\n\n"
                                 )
                             media[0 + 3 * (i)].caption = text
                             app.send_media_group(chat_id=message.chat.id, media=media)
