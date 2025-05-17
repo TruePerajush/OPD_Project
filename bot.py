@@ -480,7 +480,7 @@ class TelegramBot:
             
                 cur.execute("""
                     SELECT user_id FROM "Users" WHERE chat_id = %s
-                """, (chat_id,))
+                """, [chat_id,])
                 result = cur.fetchone()
                 if not result:
                     return None, None
@@ -567,14 +567,14 @@ class TelegramBot:
                 cursor = conn.cursor()
                 with conn.cursor() as cur:
                     cur.execute("""
-                        SELECT user_id, book_id, rating, opinion
-                        FROM Notes
-                        WHERE user_id = %s AND book_id = %s
-                    """, (chat_id, book_id))
+                        SELECT rating, opinion
+                        FROM "Notes"
+                        WHERE book_id = %s
+                    """, (book_id, ))
                     row = cur.fetchone()
                     if row:
-                        user_id, book_id, rating, opinion = row
-                        return Note(user_id=user_id, book_id=book_id, rating=rating, opinion=opinion)
+                        rating, opinion = row
+                        return Note(book_id=book_id, chat_id=chat_id, rating=rating, opinion=opinion)
                 return None
             except Exception as e:
                 print(f"Ошибка при получении note: {e}")

@@ -250,7 +250,13 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             app.edit_message_text(
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
-                text=f"Контактные данные и описание: ДОПИСАТЬ.",
+                text=f"Читательский дневник - ваш персональный помощник в мире книг!\n\n"
+            "📚 Основные функции:\n"
+            "- Добавление книг с подробной информацией\n"
+            "- Ведение заметок и цитат\n"
+            "- Постановка целей по чтению\n"
+            "- Анализ вашей читательской активности\n\n"
+            "Используйте меню для навигации по функциям.",
             )
 
     def statistic(app: TeleBot, bot: TelegramBot):
@@ -287,16 +293,19 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             reports: Tuple[Report, Report] = bot.get_report(message.chat.id)
             try:
                 progress = reports[0].pages_read / reports[1].pages_read * 100
-            except ZeroDivisionError as e:
+            except Exception as e:
                 progress = 0
 
-            
-            app.send_message(
-                chat_id=message.chat.id,
-                text=f"Ваши результаты за неделю.\n"
+            if progress != 0:
+                text = f"Ваши результаты за неделю.\n"
                 f"-Прочитано книг: {reports[0].books_read} ({reports[0].pages_read} стр.)\n"
                 f"-Новые цитаты: {reports[0].quotes_added}\n"
-                f"На {progress if progress < 100 else progress - 100}%{f' менее' if progress < 100 else ''} продуктивнее прошлой недели.\n",
+                f"На {progress if progress < 100 else progress - 100}%{f' менее' if progress < 100 else ''} продуктивнее прошлой недели.\n"
+            else:
+                text = "Пока нет прогресса"
+            app.send_message(
+                chat_id=message.chat.id,
+                text=text,
             )
 
     def notes(app: TeleBot, bot: TelegramBot):
@@ -620,20 +629,16 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
         def books_add(message: Message):
             msg = app.send_message(
                 chat_id=message.chat.id,
-                text="Введите название книги.(Поддерживается ввод через гс)",
+                text="Введите название книги.",
             )
             app.register_next_step_handler(msg, books_add_title)
 
         def books_add_title(message: Message):
             book = Book()
-            try:
-                file_info = app.get_file(message.voice.file_id)
-                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
-                book.title = bot.voice_to_speech(file_url)
-            except AttributeError:
-                book.title = message.text
+            
+            book.title = message.text
             msg = app.send_message(
-                chat_id=message.chat.id, text="Введите автора. (Формат: Фамилия Имя Отчество)"
+                chat_id=message.chat.id, text="Введите автора. (Формат: Фамилия Имя Отчество (опционально))"
             )
             app.register_next_step_handler(
                 msg, lambda message: books_add_author(message, book)
@@ -646,34 +651,39 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                 book.author = bot.voice_to_speech(file_url)
             except AttributeError:
                 author = message.text
-                if len(author.split(" ")) != 3:
+                if len(author.split(" ")) not in [2, 3]:
                     msg = app.send_message(
                         chat_id=message.chat.id,
-                        text="В сообщение должно быть три слова."
+                        text="В сообщении должно быть три или два слова."
                     )
                     app.register_next_step_handler(msg, lambda message: books_add_author(message, book))
                     return
                 book.author = author
-                book = bot.get_book_from_side_site(book)
+                site_book = bot.get_book_from_side_site(book)
                 msg = app.send_message(
                     chat_id=message.chat.id,
-                    text=f"Название: {book.title}\n"
-                    f"Автор: {book.author}\n"
-                    f"Жанр: {book.genre}\n"
-                    f"Год: {book.year}\n\n"
+                    text=f"Название: {site_book.title}\n"
+                    f"Автор: {site_book.author}\n"
+                    f"Жанр: {site_book.genre}\n"
+                    f"Год: {site_book.year}\n\n"
                     f"Это книга, которую вы хотите добавить? (y/n)",
             )
             app.register_next_step_handler(
-                msg, lambda message: books_first_confirmation(message, book)
+                msg, lambda message: books_first_confirmation(message, book, site_book)
             )
 
-        def books_first_confirmation(message: Message, book: Book):
+        def books_first_confirmation(message: Message, book: Book, site_book: Book):
             if message.text == "y":
                 msg = app.send_message(
-                    chat_id=message.chat.id, text="Скиньте фото или ссылку обложки."
-                )
+                        chat_id=message.chat.id,
+                        text="Выберите статус книги: \n"
+                        "1. Читаю сейчас\n"
+                        "2. Прочитано\n"
+                        "3. Отложено\n",
+                    )
+                book = site_book
                 app.register_next_step_handler(
-                    msg, lambda message: books_cover(message, book)
+                    msg, lambda message: books_status(message, book)
                 )
             elif message.text == "n":
                 msg = app.send_message(
@@ -717,6 +727,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                         app.register_next_step_handler(
                             msg, lambda message: books_genre_user_input(message, book)
                         )
+                        return
                     case _:
                         msg = app.send_message(
                             chat_id=message.chat.id, text="Введите число от 1 до 6."
@@ -758,68 +769,21 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     )
                 else:
                     msg = app.send_message(
-                        chat_id=message.chat.id, text="Скиньте фото или ссылку обложки."
+                    chat_id=message.chat.id,
+                    text=f"Введите статус:\n"
+                        f"1. Читаю сейчас.\n"
+                        f"2. Прочитано.\n"
+                        f"3. Отложено.\n"
                     )
+                    book.year = year
                     app.register_next_step_handler(
-                        msg, lambda message: books_cover(message, book)
+                        msg, lambda message: books_status(message, book)
                     )
             except ValueError:
                 msg = app.send_message(chat_id=message.chat.id, text="Введите число.")
                 app.register_next_step_handler(
                     msg, lambda message: books_year(message, book)
                 )
-
-        def books_cover(message: Message, book: Book):
-            try:
-                if message.text == "0":
-                    msg = app.send_message(
-                        chat_id=message.chat.id,
-                        text="https://img.freepik.com/premium-photo/white-background-with-black-white-image-white-background_796580-1989.jpg?w=1380\nВыберите статус книги: \n"
-                             "1. Читаю сейчас\n"
-                             "2. Прочитано\n"
-                             "3. Отложено\n",
-                    )
-                else:
-                    photo = message.photo[-1]
-                    file_id = photo.file_id
-                    file_info = app.get_file(file_id)
-                    book.cover = file_info
-                    msg = app.send_message(
-                        chat_id=message.chat.id,
-                        text="Выберите статус книги: \n"
-                        "1. Читаю сейчас\n"
-                        "2. Прочитано\n"
-                        "3. Отложено\n",
-                    )
-                app.register_next_step_handler(
-                    msg, lambda message: books_status(message, book)
-                )
-            except:
-                if (
-                    re.match(
-                        r"^(https?://.*\.(jpg|jpeg))$", message.text, re.IGNORECASE
-                    )
-                    is not None
-                ):
-                    book.cover = message.text
-                    msg = app.send_message(
-                        chat_id=message.chat.id,
-                        text="Выберите статус книги: \n"
-                        "1. Читаю сейчас\n"
-                        "2. Прочитано\n"
-                        "3. Отложено\n",
-                    )
-                    app.register_next_step_handler(
-                        msg, lambda message: books_status(message, book)
-                    )
-                else:
-                    msg = app.send_message(
-                        chat_id=message.chat.id,
-                        text="Вы не скинули фото. Попробуйте еще раз.",
-                    )
-                    app.register_next_step_handler(
-                        msg, lambda message: books_cover(message, book)
-                    )
         def books_status(message: Message, book: Book):
             try:
                 number = int(message.text)
@@ -841,8 +805,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                         return
                 msg = app.send_message(
                     chat_id=message.chat.id,
-                    text=f"{book.cover}\n"
-                    f"Подтверждение: \n"
+                    text=f"Подтверждение: \n"
                     f"Название: {book.title}\n"
                     f"Автор: {book.author}\n"
                     f"Жанр: {book.genre}\n"
@@ -905,7 +868,6 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     match number:
                         case 1:
                             text = "название."
-                            
                         case 2:
                             text = "автора."
                         case 3:
@@ -926,29 +888,21 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             to_send_back: list[Book] = []
             for book in books:
                 if type == 1:
-                    to_send_back.append(book) if book.author == message.text else None
+                    to_send_back.append(book) if book.title == message.text else None
                 elif type == 2:
-                    to_send_back.append(book) if book.title == message.text else None
+                    to_send_back.append(book) if book.author == message.text else None
                 else:
-                    to_send_back.append(book) if book.title == message.text else None
+                    to_send_back.append(book) if book.genre == message.text else None
 
             if to_send_back:
-                app.send_message(chat_id=message.chat.id, text="Найденные книги:")
-                for i in range(len(to_send_back) // 3 + 1):
-                    text = ""
-                    media = []
-                    for j in range(0 + 3 * (i - 1), 3 + 3 * (i - 1)):
-                        if j >= len(to_send_back):
-                            break
-                        media.append(InputMediaPhoto(media=to_send_back[j].cover))
-                        note = bot.get_note(message.chat.id, to_send_back[j].book_id)
-                        text += (
-                           f"Рейтинг: {note.rating if note else 'нет'}\n"
-                           f"Заметка: {note.opinion if note else 'нет'}\n\n"
-
-                        )
-                    media[0 + 3 * (i - 1)].caption = text
-                    app.send_media_group(chat_id=message.chat.id, media=media)
+                text="Найденные книги:\n"
+                for i in range(len(to_send_back)):
+                    text += f"{i+1}. {to_send_back[i].author} - {to_send_back[i].title}\n"
+                    note = bot.get_note(message.chat.id, book.book_id)
+                    if note:
+                        text += f"\tЗаметка: {note.opinion}\n"
+                        text += f"\tРейтинг: {note.rating}/10\n"
+                app.send_message(chat_id=message.chat.id, text=text)
             else:
                 app.send_message(chat_id=message.chat.id, text="Книги не найдены.")
 

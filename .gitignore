@@ -1,1 +1,5 @@
 *.env
+opd.session.sql
+.vscode/settings.json
+__pycache__/bot.cpython-313.pyc
+__pycache__/handlers.cpython-313.pyc
