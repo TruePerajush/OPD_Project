@@ -17,7 +17,7 @@ if __name__ == "__main__":
     connection = f"{os.getenv('DRIVER')}://{os.getenv('USER')}:{os.getenv('PASSWORD')}@{os.getenv('HOST')}:{os.getenv('PORT')}/{os.getenv('DATABASE')}"
 
     try:
-        with psycopg2.conn/ect(
+        with psycopg2.connect(
                 connection
         ) as conn:
             pass
