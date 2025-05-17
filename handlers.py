@@ -84,7 +84,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             goals_start(call.message)
 
         def goals_start(message: Message):
-            if bot.get_user(message.chat.id).annual_goal == -1:
+            if bot.get_user(message.chat.id).monthly_goal == -1:
                 msg = app.edit_message_text(
                     chat_id=message.chat.id,
                     message_id=message.message_id,
@@ -216,7 +216,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     f"- Минут в день: {user.daily_goal}\n\n"
                     f"{reminder_text}\n\n"
                     f"Все верно? (y/n)\n",
-        )
+                )
 
             else:
                 msg = app.send_message(
@@ -234,7 +234,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
             elif message.text == "n":
                 print("тута")
                 user = bot.get_user(message.chat.id)
-                bot.update_user_attribute(user, "annual_goal", -1)
+                bot.update_user_attribute(user, "monthly_goal", -1)
                 msg = app.send_message(message.chat.id, ".")
                 goals_start(msg)
             else:
@@ -499,6 +499,8 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                 text = f"Список цитат:\n"
                 for number, quote in enumerate(quotes):
                     text += f'{number+1}. "{quote.text} стр. {quote.page_number}"'
+                if not quotes:
+                    text += "Список пуст."
                 app.send_message(
                     chat_id=message.chat.id,
                     text=text,
@@ -665,7 +667,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     text=f"Название: {site_book.title}\n"
                     f"Автор: {site_book.author}\n"
                     f"Жанр: {site_book.genre}\n"
-                    f"Год: {site_book.year}\n\n"
+                    f"Год издания: {site_book.year}\n\n"
                     f"Это книга, которую вы хотите добавить? (y/n)",
             )
             app.register_next_step_handler(

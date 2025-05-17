@@ -94,7 +94,7 @@ class User:
         monthly_goal: int = -1,
         annual_goal: int = -1,
         reminder: time = None,
-
+        last_update: datetime = None,
     ):
         self.username: str = username
         self.chat_id: int = chat_id
@@ -104,6 +104,7 @@ class User:
         self.annual_goal: int = annual_goal
         self.reminder: time = reminder
         self.user_id = user_id
+        self.last_update = last_update
 
 
 class TelegramBot:
@@ -157,11 +158,11 @@ class TelegramBot:
         """
         try:
             conn = self._get_conn()
+            User()
             with conn.cursor() as cursor:
-                update_query = sql.SQL('UPDATE "Users" SET {attribute} = %s WHERE {chat_id} = {user.chat_id}'
-            )
-                new_attribute = value
-                cursor.execute(update_query, (new_attribute))
+                text = f'update "Users" set {attribute}=%s{'::time' if attribute == "reminder" else ''} where chat_id=%s'
+                cursor.execute(text, (value, user.chat_id))
+            conn.commit()
         except Exception as e:
             print(f"Ошибка при получении пользователя: {e}")
             return None
@@ -178,7 +179,7 @@ class TelegramBot:
         """
 
         conn = self._get_conn()
-        query = 'SELECT user_id,username,daily_goal,weekly_goal,monthly_goal,annual_goal,reminder,last_update FROM "Users" WHERE chat_id = %s'
+        query = 'SELECT user_id,username,chat_id,daily_goal,weekly_goal,monthly_goal,annual_goal,reminder,last_update FROM "Users" WHERE chat_id = %s'
         
         try:
             cursor = conn.cursor()# i  = * ( long * ) &y;   evil floating point bit level hacking
