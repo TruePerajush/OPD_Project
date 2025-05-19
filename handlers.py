@@ -159,13 +159,7 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     number,
                 )
 
-                msg = app.send_message(
-                    chat_id=message.chat.id,
-                    text="Хотите поставить себе напоминание? (y/n)",
-                )
-
-                message_to_delete[0] = msg
-                app.register_next_step_handler(msg, goals_reminder_check)
+                goals_confirmation(message)
             except ValueError:
                 msg = app.send_message(message.chat.id, "Это не положительное число.")
                 app.register_next_step_handler(msg, goals_day)
