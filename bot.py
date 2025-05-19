@@ -9,6 +9,7 @@ from psycopg2 import sql
 import requests
 import tempfile
 from collections import Counter
+
 class Quote:
     def __init__(
         self,
