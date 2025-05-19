@@ -6,7 +6,7 @@ from telebot.types import (
     InlineKeyboardButton,
     CallbackQuery,
     InputMediaPhoto,
-)
+) 
 from bot import TelegramBot, User, time, Book, Report, Note, Quote, Union, datetime
 from typing import Callable, final
 from supabase import Client
