@@ -656,6 +656,9 @@ def init_bot(app: TeleBot, connection, BOT_TOKEN: str):
                     return
                 book.author = author
                 site_book = bot.get_book_from_side_site(book)
+                site_book.cover = "empty"
+                if len(site_book.description) > 255:
+                    site_book.description = site_book.description[:255]
                 msg = app.send_message(
                     chat_id=message.chat.id,
                     text=f"Название: {site_book.title}\n"
