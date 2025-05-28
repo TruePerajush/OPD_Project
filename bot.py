@@ -661,6 +661,7 @@ class TelegramBot:
                     description = %s,
                     year = %s,
                     cover = %s,
+                    status = %s,
                     last_update = now()
                 WHERE book_id = %s
             """, (
@@ -668,7 +669,9 @@ class TelegramBot:
                 book.description,
                 book.year,
                 book.cover,
-                book.book_id
+                book.status,
+                book.book_id,
+                
             ))
             conn.commit()
             print("Книга обновлена")
